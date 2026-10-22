@@ -95,3 +95,21 @@ describe("participação por fonte", () => {
     expect(participacaoPorFonte([{ id: "a", nome: "Loja", valor: 0 }])[0].participacao).toBe(0);
   });
 });
+
+describe("folha e juros no resumo", () => {
+  it("custo dos funcionários e juros entram no lucro como despesas fixas", () => {
+    const r = resumirMes({
+      faturamento: 5_000_000,
+      despesas: [{ valor: 1_000_000, comportamento: "variavel", entraNoLucro: true }],
+      folha: 900_000,
+      juros: 60_000,
+      impostosEstimados: 0,
+      entradasCaixa: 0,
+      saidasCaixa: 0,
+    });
+    expect(r.despesas).toBe(1_960_000);
+    expect(r.despesasLancadas).toBe(1_000_000);
+    expect(r.despesasFixas).toBe(960_000);
+    expect(r.lucro).toBe(3_040_000);
+  });
+});

@@ -75,7 +75,7 @@ export function FormEmpresa({
         <legend className="rotulo">Regime tributário</legend>
         <div className="space-y-2">
           {REGIMES.map((r) => (
-            <label key={r.v} className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${regime === r.v ? "border-destaque bg-aviso-fundo" : "border-borda bg-superficie"}`}>
+            <label key={r.v} className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${regime === r.v ? "border-2 border-destaque bg-superficie-2" : "border-borda bg-superficie"}`}>
               <input type="radio" name="regime" value={r.v} checked={regime === r.v} onChange={() => setRegime(r.v)} className="mt-1 accent-[var(--destaque)]" />
               <span>
                 <span className="block font-medium">{r.nome}</span>

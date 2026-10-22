@@ -188,3 +188,70 @@ export function formParaObjeto(fd: FormData): Record<string, string> {
   for (const [k, v] of fd.entries()) if (typeof v === "string") o[k] = v;
   return o;
 }
+
+/** Valor opcional em reais: vazio vira 0; aceita zero. */
+const valorOpcional = z
+  .string()
+  .optional()
+  .transform((s, ctx) => {
+    if (!s || !s.trim()) return 0;
+    const c = lerReais(s);
+    if (c === null || c < 0) {
+      ctx.addIssue({ code: "custom", message: "Valor inválido. Exemplo: 250,00" });
+      return z.NEVER;
+    }
+    return c;
+  });
+
+const mesCampo = z
+  .string({ message: "Informe o mês" })
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Informe o mês");
+
+export const esquemaFuncionario = z
+  .object({
+    nome: texto(100).min(2, "Informe o nome"),
+    cargo: texto(80),
+    salario: valorEmReais,
+    admissao: data("Informe a data de admissão"),
+    desligamento: dataOpcional,
+    vt: valorOpcional,
+    vr: valorOpcional,
+    planoSaude: valorOpcional,
+    outros: valorOpcional,
+    folhaDesde: mesCampo,
+  })
+  .superRefine((v, ctx) => {
+    if (v.desligamento && v.desligamento < v.admissao)
+      ctx.addIssue({ code: "custom", path: ["desligamento"], message: "O desligamento não pode ser antes da admissão" });
+  });
+
+export const TIPOS_DIVIDA = ["emprestimo", "financiamento", "fornecedor", "imposto_parcelado", "cartao", "outro"] as const;
+
+export const esquemaDivida = z.object({
+  credor: texto(100).min(2, "Para quem a empresa deve?"),
+  tipo: z.enum(TIPOS_DIVIDA, { message: "Escolha o tipo" }),
+  valorOriginal: valorEmReais,
+  juros: z
+    .string()
+    .optional()
+    .transform((s, ctx) => {
+      if (!s || !s.trim()) return 0;
+      const p = lerPercentual(s);
+      if (p === null || p > 30_000) {
+        ctx.addIssue({ code: "custom", message: "Juros inválidos. Exemplo: 1,99 (ao mês)" });
+        return z.NEVER;
+      }
+      return p;
+    }),
+  numParcelas: z.coerce
+    .number({ message: "Informe o número de parcelas" })
+    .int("Número inteiro")
+    .min(1, "Pelo menos 1 parcela")
+    .max(600, "No máximo 600 parcelas"),
+  valorParcela: valorOpcional,
+  primeiroVencimento: data("Informe a data da 1ª parcela"),
+  vencidasPagas: z.string().optional().transform((s) => !!s),
+  observacao: texto(300).optional().transform((s) => s ?? ""),
+});
+
+export const esquemaDividaDescricao = esquemaDivida.pick({ credor: true, tipo: true, observacao: true });

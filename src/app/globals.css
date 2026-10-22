@@ -120,3 +120,9 @@ body {
 .cartao {
   @apply rounded-2xl border border-borda bg-superficie p-4;
 }
+
+/* Quadro de aviso: borda no tom de destaque, sem fundo amarelado (que fica acinzentado no tema escuro). */
+.aviso {
+  @apply rounded-xl border bg-superficie p-3 text-sm;
+  border-color: color-mix(in srgb, var(--destaque) 55%, transparent);
+}

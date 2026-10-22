@@ -25,7 +25,7 @@ export default async function LayoutEmpresa({
         </div>
       </header>
       {papel === "contador" && (
-        <p className="bg-aviso-fundo px-4 py-2 text-center text-sm">Acesso de contador: somente leitura.</p>
+        <p className="border-b border-borda bg-superficie px-4 py-2 text-center text-sm text-suave">Acesso de contador: somente leitura.</p>
       )}
       <main className="mx-auto max-w-2xl px-4 py-5">{children}</main>
       <NavInferior base={base} verPainel={pode(papel, "ver_painel")} lancar={pode(papel, "lancar")} />

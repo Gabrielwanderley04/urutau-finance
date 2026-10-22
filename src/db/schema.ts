@@ -61,6 +61,15 @@ export const chaveCategoriaEnum = pgEnum("chave_categoria", [
   "outras",
 ]);
 export const origemDespesaEnum = pgEnum("origem_despesa", ["manual", "recorrente"]);
+export const statusPagamentoEnum = pgEnum("status_pagamento", ["pago", "a_pagar"]);
+export const tipoDividaEnum = pgEnum("tipo_divida", [
+  "emprestimo",
+  "financiamento",
+  "fornecedor",
+  "imposto_parcelado",
+  "cartao",
+  "outro",
+]);
 export const tratamentoMercadoriasEnum = pgEnum("tratamento_mercadorias", ["despesa_na_compra", "cmv"]);
 
 // ─── Acesso ──────────────────────────────────────────────────────────────────
@@ -275,6 +284,195 @@ export const despesas = pgTable(
   ],
 );
 
+// ─── Parâmetros fiscais (com vigência) ───────────────────────────────────────
+
+/** Alíquotas, limites e valores definidos por lei. Nunca ficam no código. */
+export const parametrosFiscais = pgTable(
+  "parametros_fiscais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chave: text("chave").notNull(),
+    /** pcm para percentuais, centavos para valores. */
+    valor: bigint("valor", { mode: "number" }).notNull(),
+    unidade: text("unidade").notNull(), // 'pcm' | 'centavos'
+    descricao: text("descricao").notNull(),
+    fonteLegal: text("fonte_legal"),
+    vigenciaInicio: date("vigencia_inicio").notNull(),
+    vigenciaFim: date("vigencia_fim"),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    index("parametros_chave_idx").on(t.chave, t.vigenciaInicio),
+    check("parametros_vigencia", sql`${t.vigenciaFim} is null or ${t.vigenciaFim} >= ${t.vigenciaInicio}`),
+  ],
+);
+
+/** Valores que a empresa sobrescreve (ex.: RAT ajustado pelo FAP, alíquota de terceiros). */
+export const empresaParametros = pgTable(
+  "empresa_parametros",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    chave: text("chave").notNull(),
+    valor: bigint("valor", { mode: "number" }).notNull(),
+    vigenciaInicio: date("vigencia_inicio").notNull(),
+    vigenciaFim: date("vigencia_fim"),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    unique("empresa_parametros_uq").on(t.empresaId, t.chave, t.vigenciaInicio),
+    check("ep_vigencia", sql`${t.vigenciaFim} is null or ${t.vigenciaFim} >= ${t.vigenciaInicio}`),
+  ],
+);
+
+// ─── Funcionários ────────────────────────────────────────────────────────────
+
+export const funcionarios = pgTable(
+  "funcionarios",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    nome: text("nome").notNull(),
+    cargo: text("cargo").notNull().default(""),
+    salarioBrutoCentavos: centavos("salario_bruto_centavos").notNull(),
+    admissao: date("admissao").notNull(),
+    desligamento: date("desligamento"),
+    /** Valor que a empresa paga por mês (já descontada a parte do funcionário). */
+    vtCentavos: centavos("vt_centavos").notNull().default(0),
+    vrCentavos: centavos("vr_centavos").notNull().default(0),
+    planoSaudeCentavos: centavos("plano_saude_centavos").notNull().default(0),
+    outrosBeneficiosCentavos: centavos("outros_beneficios_centavos").notNull().default(0),
+    /** Primeiro mês em que o urutau gera a folha (antes disso, o custo foi lançado à mão). */
+    folhaDesde: text("folha_desde").notNull(),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+    excluidoEm: excluidoEm(),
+  },
+  (t) => [
+    unique("funcionarios_empresa_id_uq").on(t.empresaId, t.id),
+    check("func_salario", sql`${t.salarioBrutoCentavos} > 0`),
+    check(
+      "func_beneficios",
+      sql`${t.vtCentavos} >= 0 and ${t.vrCentavos} >= 0 and ${t.planoSaudeCentavos} >= 0 and ${t.outrosBeneficiosCentavos} >= 0`,
+    ),
+    check("func_datas", sql`${t.desligamento} is null or ${t.desligamento} >= ${t.admissao}`),
+    check("func_folha_desde", sql`${t.folhaDesde} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  ],
+);
+
+/** Foto do custo de cada funcionário em cada mês: aumentos futuros não reescrevem o passado. */
+export const folhaMensal = pgTable(
+  "folha_mensal",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    funcionarioId: uuid("funcionario_id").notNull(),
+    competencia: text("competencia").notNull(), // AAAA-MM
+    diasTrabalhados: integer("dias_trabalhados").notNull(),
+    salario: centavos("salario").notNull(),
+    fgts: centavos("fgts").notNull(),
+    provisao13: centavos("provisao_13").notNull(),
+    provisaoFerias: centavos("provisao_ferias").notNull(),
+    fgtsProvisoes: centavos("fgts_provisoes").notNull(),
+    inssPatronal: centavos("inss_patronal").notNull(),
+    rat: centavos("rat").notNull(),
+    terceiros: centavos("terceiros").notNull(),
+    beneficios: centavos("beneficios").notNull(),
+    custoTotal: centavos("custo_total").notNull(),
+    /** Parte que sai do caixa no pagamento do mês (sem provisões de 13º e férias). */
+    valorCaixa: centavos("valor_caixa").notNull(),
+    vencimento: date("vencimento").notNull(),
+    status: statusPagamentoEnum("status").notNull().default("a_pagar"),
+    pagoEm: date("pago_em"),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("folha_func_comp_uq").on(t.empresaId, t.funcionarioId, t.competencia),
+    foreignKey({
+      name: "folha_funcionario_fk",
+      columns: [t.empresaId, t.funcionarioId],
+      foreignColumns: [funcionarios.empresaId, funcionarios.id],
+    }).onDelete("cascade"),
+    check("folha_pago_coerente", sql`(${t.status} = 'pago') = (${t.pagoEm} is not null)`),
+    index("folha_empresa_comp_idx").on(t.empresaId, t.competencia),
+  ],
+);
+
+// ─── Dívidas ─────────────────────────────────────────────────────────────────
+
+export const dividas = pgTable(
+  "dividas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    credor: text("credor").notNull(),
+    tipo: tipoDividaEnum("tipo").notNull(),
+    valorOriginalCentavos: centavos("valor_original_centavos").notNull(),
+    /** Saldo no momento do cadastro, a partir do qual as parcelas restantes são geradas. */
+    saldoDevedorCentavos: centavos("saldo_devedor_centavos").notNull(),
+    jurosMensaisPcm: integer("juros_mensais_pcm").notNull(),
+    numParcelas: integer("num_parcelas").notNull(),
+    valorParcelaCentavos: centavos("valor_parcela_centavos").notNull(),
+    /** true se o valor da parcela veio do contrato; false se calculado pela tabela Price. */
+    parcelaInformada: boolean("parcela_informada").notNull().default(false),
+    diaVencimento: integer("dia_vencimento").notNull(),
+    primeiroVencimento: date("primeiro_vencimento").notNull(),
+    observacao: text("observacao").notNull().default(""),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+    excluidoEm: excluidoEm(),
+  },
+  (t) => [
+    unique("dividas_empresa_id_uq").on(t.empresaId, t.id),
+    check("dividas_valores", sql`${t.valorOriginalCentavos} > 0 and ${t.saldoDevedorCentavos} > 0 and ${t.valorParcelaCentavos} > 0`),
+    check("dividas_juros", sql`${t.jurosMensaisPcm} >= 0 and ${t.jurosMensaisPcm} <= 100000`),
+    check("dividas_parcelas", sql`${t.numParcelas} between 1 and 600`),
+    check("dividas_dia", sql`${t.diaVencimento} between 1 and 31`),
+  ],
+);
+
+export const parcelasDivida = pgTable(
+  "parcelas_divida",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    dividaId: uuid("divida_id").notNull(),
+    numero: integer("numero").notNull(),
+    vencimento: date("vencimento").notNull(),
+    valor: centavos("valor").notNull(),
+    /** Despesa do mês do vencimento. */
+    juros: centavos("juros").notNull(),
+    /** Reduz o saldo devedor; não é despesa. */
+    amortizacao: centavos("amortizacao").notNull(),
+    saldoApos: centavos("saldo_apos").notNull(),
+    status: statusPagamentoEnum("status").notNull().default("a_pagar"),
+    pagoEm: date("pago_em"),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("parcelas_divida_numero_uq").on(t.dividaId, t.numero),
+    foreignKey({
+      name: "parcelas_divida_fk",
+      columns: [t.empresaId, t.dividaId],
+      foreignColumns: [dividas.empresaId, dividas.id],
+    }).onDelete("cascade"),
+    check("parcelas_valores", sql`${t.valor} = ${t.juros} + ${t.amortizacao} and ${t.juros} >= 0 and ${t.amortizacao} >= 0`),
+    check("parcelas_pago_coerente", sql`(${t.status} = 'pago') = (${t.pagoEm} is not null)`),
+    index("parcelas_empresa_venc_idx").on(t.empresaId, t.vencimento),
+  ],
+);
+
+export type TipoDivida = (typeof tipoDividaEnum.enumValues)[number];
 export type Papel = (typeof papelEnum.enumValues)[number];
 export type Regime = (typeof regimeEnum.enumValues)[number];
 export type Atividade = (typeof atividadeEnum.enumValues)[number];

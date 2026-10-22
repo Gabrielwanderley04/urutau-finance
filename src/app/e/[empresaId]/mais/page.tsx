@@ -12,8 +12,12 @@ export default async function Mais({ params }: { params: Promise<{ empresaId: st
   const base = `/e/${empresaId}`;
   const gerencia = pode(papel, "gerenciar");
   const itens: { href?: string; titulo: string; desc: string; fase?: number }[] = [
-    { titulo: "Funcionários", desc: "Quanto cada um custa de verdade", fase: 2 },
-    { titulo: "Dívidas", desc: "Empréstimos, parcelas e juros", fase: 2 },
+    ...(pode(papel, "ver_painel")
+      ? [
+          { href: `${base}/funcionarios`, titulo: "Funcionários", desc: "Quanto cada um custa de verdade" },
+          { href: `${base}/dividas`, titulo: "Dívidas", desc: "Empréstimos, parcelas e juros" },
+        ]
+      : []),
     { titulo: "Impostos", desc: "Estimativa explicada passo a passo", fase: 3 },
     { titulo: "Relatórios", desc: "Exportar o mês para o contador", fase: 4 },
     ...(gerencia

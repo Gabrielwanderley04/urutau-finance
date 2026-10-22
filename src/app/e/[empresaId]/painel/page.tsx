@@ -7,6 +7,7 @@ import { obterDb } from "@/db";
 import { formatarDataCurta, hoje, mesAtual, mesValido, nomeDoMes } from "@/lib/datas";
 import { formatarPcm, formatarReais } from "@/lib/dinheiro";
 import { exigirAcesso } from "@/lib/servidor/acesso";
+import { sincronizarFolha } from "@/lib/servidor/folha";
 import { carregarPainel } from "@/lib/servidor/painel";
 
 export const metadata = { title: "Painel" };
@@ -47,11 +48,13 @@ export default async function Painel({
 }) {
   const { empresaId } = await params;
   const { mes: mesParam } = await searchParams;
-  await exigirAcesso(empresaId, "ver_painel");
+  const { empresa } = await exigirAcesso(empresaId, "ver_painel");
   const atual = mesAtual();
   const mes = mesValido(mesParam) ? mesParam : atual;
   const hojeData = hoje();
-  const { resumo: r, fontes, grafico, vencimentos } = await carregarPainel(obterDb(), empresaId, mes, hojeData);
+  const db = obterDb();
+  await sincronizarFolha(db, empresa, mes, atual);
+  const { resumo: r, fontes, grafico, vencimentos, dividas } = await carregarPainel(db, empresaId, mes, hojeData);
   const base = `/e/${empresaId}`;
   const nome = nomeDoMes(mes);
   const totalPagar = vencimentos.filter((v) => v.tipo === "pagar").reduce((t, v) => t + v.valor, 0);
@@ -80,7 +83,11 @@ export default async function Painel({
           <Valor centavos={r.faturamento} tamanho="md" />
         </Cartao>
 
-        <Cartao titulo="Despesas" ajuda={<>Gastos do mês, pela data da despesa. A guia de imposto paga não entra aqui, porque o imposto já é descontado no cartão &quot;Impostos&quot;.</>}>
+        <Cartao
+          titulo="Despesas"
+          ajuda={<>Gastos do mês: o que você lançou, o custo real dos funcionários e os juros das dívidas. A parte da parcela que abate a dívida não é despesa. A guia de imposto paga também não entra aqui, porque o imposto já é descontado no cartão &quot;Impostos&quot;.</>}
+          rodape={(r.folha > 0 || r.juros > 0) && <>Inclui {r.folha > 0 && <>folha {formatarReais(r.folha)}</>}{r.folha > 0 && r.juros > 0 && " e "}{r.juros > 0 && <>juros {formatarReais(r.juros)}</>}</>}
+        >
           <Valor centavos={r.despesas} tamanho="md" />
         </Cartao>
 
@@ -102,19 +109,30 @@ export default async function Painel({
         <Cartao
           grande
           titulo="Caixa do mês"
-          ajuda={<>Dinheiro que realmente entrou e saiu no mês, pela data em que você recebeu ou pagou. Pode ser diferente do lucro: uma venda a prazo conta no lucro agora e no caixa só quando o dinheiro cair.</>}
+          ajuda={<>Dinheiro que realmente entrou e saiu no mês, pela data em que você recebeu ou pagou. Pode ser diferente do lucro: uma venda a prazo conta no lucro agora e no caixa só quando o dinheiro cair; a parcela inteira de uma dívida sai do caixa, mas só os juros são despesa; a reserva de 13º e férias pesa no lucro, mas só sai do caixa quando for paga.</>}
           rodape={<>Entrou {formatarReais(r.caixa.entradas)} · Saiu {formatarReais(r.caixa.saidas)}</>}
         >
           <Valor centavos={r.caixa.saldo} tamanho="lg" sinalPositivo />
         </Cartao>
 
-        <Cartao grande titulo="Total em dívidas" ajuda={<>Soma do que a empresa ainda deve em empréstimos, financiamentos e parcelamentos.</>} rodape="Cadastro de dívidas chega na próxima fase">
-          <span className="numero text-3xl font-bold text-suave">—</span>
+        <Cartao
+          grande
+          titulo="Total em dívidas"
+          ajuda={<>Quanto a empresa ainda deve (sem contar juros futuros) em empréstimos, financiamentos e parcelamentos, no fim de {nome}.</>}
+          rodape={
+            dividas.quantidade > 0 ? (
+              <><Link href={`${base}/dividas`} className="underline">{dividas.quantidade} dívida{dividas.quantidade > 1 ? "s" : ""}</Link> · vence em {nome}: {formatarReais(dividas.venceNoMes)}</>
+            ) : (
+              <Link href={`${base}/dividas`} className="underline">Cadastrar dívidas</Link>
+            )
+          }
+        >
+          <Valor centavos={dividas.saldo} tamanho="lg" />
         </Cartao>
       </div>
 
       {!r.impostosDisponiveis && (
-        <p className="rounded-xl bg-aviso-fundo p-3 text-sm">
+        <p className="aviso">
           ⚠ O lucro acima ainda <strong>não desconta impostos</strong>. O cálculo dos impostos chega na próxima versão.
         </p>
       )}
@@ -180,7 +198,7 @@ export default async function Painel({
           <ul className="divide-y divide-borda">
             {vencimentos.slice(0, LIMITE_VENCIMENTOS).map((v) => (
               <li key={`${v.tipo}-${v.id}`}>
-                <Link href={`${base}/${v.tipo === "pagar" ? "despesas" : "vendas"}/${v.id}`} className="flex items-center justify-between gap-3 py-2.5">
+                <Link href={`${base}/${v.link}`} className="flex items-center justify-between gap-3 py-2.5">
                   <span className="min-w-0">
                     <span className="block truncate">{v.descricao}</span>
                     <span className={`text-xs ${v.atrasado ? "font-bold text-negativo" : "text-suave"}`}>

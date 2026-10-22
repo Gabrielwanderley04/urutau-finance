@@ -12,13 +12,20 @@ export interface DespesaAgregada {
 export interface EntradaResumo {
   /** Vendas com data (competência) no mês. */
   faturamento: Centavos;
-  /** Despesas com data (competência) no mês, agregadas por categoria. */
+  /** Despesas lançadas com data (competência) no mês, agregadas por categoria. */
   despesas: DespesaAgregada[];
+  /** Custo real dos funcionários no mês (folha gerada automaticamente). Despesa fixa. */
+  folha?: Centavos;
+  /** Juros das parcelas de dívidas que vencem no mês. Despesa fixa. A amortização não entra. */
+  juros?: Centavos;
   /** Imposto estimado do mês; null enquanto o cálculo não estiver disponível. */
   impostosEstimados: Centavos | null;
   /** Vendas efetivamente recebidas no mês (pela data de recebimento). */
   entradasCaixa: Centavos;
-  /** Despesas efetivamente pagas no mês (pela data de pagamento), de qualquer categoria. */
+  /**
+   * Tudo o que saiu no mês pela data de pagamento: despesas de qualquer categoria,
+   * folha paga (sem provisões) e parcelas de dívidas pagas (juros + amortização).
+   */
   saidasCaixa: Centavos;
 }
 
@@ -29,7 +36,11 @@ export type PontoEquilibrio =
 
 export interface ResumoMes {
   faturamento: Centavos;
+  /** Total que entra no lucro: lançadas + folha + juros. */
   despesas: Centavos;
+  despesasLancadas: Centavos;
+  folha: Centavos;
+  juros: Centavos;
   despesasFixas: Centavos;
   despesasVariaveis: Centavos;
   impostos: Centavos;
@@ -42,7 +53,9 @@ export interface ResumoMes {
 }
 
 export function resumirMes(e: EntradaResumo): ResumoMes {
-  let fixas = 0;
+  const folha = e.folha ?? 0;
+  const juros = e.juros ?? 0;
+  let fixas = folha + juros;
   let variaveis = 0;
   for (const d of e.despesas) {
     if (!d.entraNoLucro) continue;
@@ -56,6 +69,9 @@ export function resumirMes(e: EntradaResumo): ResumoMes {
   return {
     faturamento: e.faturamento,
     despesas,
+    despesasLancadas: despesas - folha - juros,
+    folha,
+    juros,
     despesasFixas: fixas,
     despesasVariaveis: variaveis,
     impostos,

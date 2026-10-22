@@ -75,7 +75,7 @@ export default async function Vendas({
                   {veTudo && v.autor ? ` · ${v.autor.split(" ")[0]}` : ""}
                 </span>
                 {v.status === "a_receber" && (
-                  <span className="mt-1 inline-block rounded-full bg-aviso-fundo px-2 py-0.5 text-xs">A receber em {formatarDataCurta(v.dataRecebimento)}</span>
+                  <span className="mt-1 inline-block rounded-full border border-borda px-2 py-0.5 text-xs">A receber em {formatarDataCurta(v.dataRecebimento)}</span>
                 )}
               </Link>
               <div className="flex flex-col items-end gap-1">

@@ -44,6 +44,14 @@ npm run lint    # checagem de tipos
 - **Imposto não conta duas vezes**: a categoria "Impostos sobre vendas" (`entra_no_lucro = false`)
   aparece só no caixa, porque o lucro desconta o imposto estimado.
 - **Ponto de equilíbrio**: cada categoria é fixa ou variável; `PE = fixas × faturamento ÷ (faturamento − variáveis − impostos)`.
+- **Parâmetros com vigência**: FGTS, INSS patronal, RAT, terceiros e CPP do MEI ficam em `parametros_fiscais`
+  (com início e fim de vigência). A empresa pode sobrescrever valores em `empresa_parametros` (ex.: RAT ajustado pelo FAP).
+- **Folha mensal**: cada funcionário gera uma linha por mês em `folha_mensal` (foto do custo). Meses passados ficam
+  congelados; o mês atual é recalculado enquanto não for pago. `folha_desde` evita duplicar salários já lançados à mão.
+  Custo = salário + FGTS + 13º (÷12) + férias com 1/3 (÷9) + FGTS das reservas + encargos (se o regime exigir) + benefícios.
+  No caixa entram só salário, FGTS, encargos sobre o salário e benefícios: as reservas saem quando o 13º e as férias forem pagos.
+- **Dívidas**: parcelas pela tabela Price, calculadas com frações exatas (BigInt). Os juros são despesa no mês do vencimento;
+  a amortização só reduz o saldo e o caixa. O banco garante `valor = juros + amortização` em cada parcela.
 - **Preparado para estoque**: `empresas.tratamento_mercadorias` e `despesas.compra_id` já existem.
 
 ## Estrutura
@@ -57,7 +65,7 @@ src/
   components/          UI compartilhada
   db/                  schema Drizzle, conexão, categorias e fontes padrão
   lib/
-    calculos/          cálculos puros (painel; nas próximas fases: folha, dívidas, impostos)
+    calculos/          cálculos puros: painel, folha, dívidas, parâmetros (e impostos na Fase 3)
     servidor/          autenticação, acesso, consultas e server actions
 drizzle/               migrações SQL
 scripts/               migrate, reset, seed
@@ -67,6 +75,6 @@ tests/                 Vitest
 ## Fases
 
 1. ✅ Fundação: login, empresa, categorias, vendas, despesas e painel básico
-2. Funcionários com custo real e dívidas com parcelas
+2. ✅ Funcionários com custo real e dívidas com parcelas
 3. Impostos: MEI e Simples Nacional, depois Lucro Presumido
 4. Relatórios, exportação, despesas recorrentes e alertas de vencimento

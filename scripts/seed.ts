@@ -20,9 +20,15 @@ import {
   fontesReceita,
   usuarios,
   vendas,
+  dividas,
+  folhaMensal,
+  funcionarios,
+  parcelasDivida,
   type ChaveCategoria,
 } from "../src/db/schema";
+import { gerarCronograma } from "../src/lib/calculos/dividas";
 import { type Data, diasNoMes, hoje, mesAtual, somarDias, somarMeses, ultimosMeses } from "../src/lib/datas";
+import { sincronizarFolha } from "../src/lib/servidor/folha";
 
 const url = process.argv[2] ?? process.env.DATABASE_URL!;
 const { db, cliente } = criarConexao(url);
@@ -62,7 +68,7 @@ const [dono, colaborador, contador] = await db
 const hojeData = hoje();
 const mesHoje = mesAtual();
 
-await db.transaction(async (tx) => {
+const padariaId = await db.transaction(async (tx) => {
   // ── Empresa principal ──────────────────────────────────────────────────────
   const [padaria] = await tx
     .insert(empresas)
@@ -175,9 +181,7 @@ await db.transaction(async (tx) => {
       conta("contas_fixas", "Internet e telefone", reais(189), d(12)),
       conta("contas_fixas", "Honorários do contador", reais(850), d(10)),
       conta("contas_fixas", "Sistema de caixa (PDV)", reais(149), d(5)),
-      // Até a Fase 2, os salários entram como despesa manual.
-      conta("funcionarios", "Salários da equipe (3 pessoas)", reais(6900), d(5)),
-      conta("funcionarios", "FGTS e vale-transporte", reais(1180), d(7)),
+      // Salários não são lançados aqui: a folha é gerada a partir do cadastro de funcionários.
       conta("pro_labore", "Pró-labore Marina", reais(4000), d(5)),
       conta("marketing", "Anúncios no Instagram", entre(reais(350), reais(700)), d(20)),
       // Taxa da maquininha ≈ 2,1% das vendas no cartão
@@ -226,7 +230,46 @@ await db.transaction(async (tx) => {
   );
   await tx.insert(vendas).values(vendasMei);
   console.log(`Marina Doces (MEI): ${vendasMei.length} vendas.`);
+  return padaria.id;
 });
+
+// ── Funcionários: a folha de cada mês é gerada pelo próprio sistema ─────────
+const [padaria] = await db.select().from(empresas).where(eq(empresas.id, padariaId));
+const inicioFolha = ultimosMeses(mesHoje, 13)[0];
+await db.insert(funcionarios).values([
+  { empresaId: padariaId, nome: "Joana Lima", cargo: "Atendente", salarioBrutoCentavos: reais(1800), admissao: "2024-02-01", vtCentavos: reais(180), vrCentavos: reais(300), folhaDesde: inicioFolha },
+  { empresaId: padariaId, nome: "Roberto Alves", cargo: "Padeiro", salarioBrutoCentavos: reais(2600), admissao: "2023-04-10", vtCentavos: reais(120), vrCentavos: reais(300), planoSaudeCentavos: reais(180), folhaDesde: inicioFolha },
+  // Admitida no meio do mês, há 4 meses: mostra a folha proporcional.
+  { empresaId: padariaId, nome: "Fernanda Costa", cargo: "Confeiteira", salarioBrutoCentavos: reais(2300), admissao: `${somarMeses(mesHoje, -4)}-16`, vtCentavos: reais(150), vrCentavos: reais(300), folhaDesde: inicioFolha },
+]);
+await sincronizarFolha(db, padaria, mesHoje, mesHoje);
+// Meses anteriores: folha paga no dia 5 do mês seguinte.
+const folhas = await db.select().from(folhaMensal).where(eq(folhaMensal.empresaId, padariaId));
+for (const f of folhas.filter((f) => f.vencimento <= hojeData))
+  await db.update(folhaMensal).set({ status: "pago", pagoEm: f.vencimento }).where(eq(folhaMensal.id, f.id));
+console.log(`Folha: ${folhas.length} linhas geradas para 3 funcionários.`);
+
+// ── Dívidas ─────────────────────────────────────────────────────────────────
+const contratos = [
+  { credor: "Banco do Brasil · capital de giro", tipo: "emprestimo" as const, valor: reais(30000), juros: 2_100, n: 24, primeira: `${somarMeses(mesHoje, -8)}-15`, observacao: "Contrato 4471-2. Usado para reformar a vitrine." },
+  { credor: "Sicoob · forno novo", tipo: "financiamento" as const, valor: reais(18000), juros: 1_490, n: 36, primeira: `${somarMeses(mesHoje, -4)}-20`, observacao: "Forno industrial 2 câmaras" },
+  { credor: "Moinho Bom Trigo", tipo: "fornecedor" as const, valor: reais(4800), juros: 0, n: 4, primeira: `${somarMeses(mesHoje, -1)}-25`, observacao: "Compra de farinha em atacado" },
+  { credor: "Receita Federal · parcelamento do Simples", tipo: "imposto_parcelado" as const, valor: reais(6000), juros: 1_000, n: 30, primeira: `${somarMeses(mesHoje, -10)}-28`, observacao: "Parcelamento de DAS em atraso de 2025" },
+];
+for (const c of contratos) {
+  const crono = gerarCronograma({ saldoDevedor: c.valor, jurosMensais: c.juros, numParcelas: c.n, primeiroVencimento: c.primeira, diaVencimento: Number(c.primeira.slice(8)) });
+  const [d] = await db
+    .insert(dividas)
+    .values({ empresaId: padariaId, credor: c.credor, tipo: c.tipo, valorOriginalCentavos: c.valor, saldoDevedorCentavos: c.valor, jurosMensaisPcm: c.juros, numParcelas: c.n, valorParcelaCentavos: crono.valorParcela, diaVencimento: Number(c.primeira.slice(8)), primeiroVencimento: c.primeira, observacao: c.observacao })
+    .returning();
+  await db.insert(parcelasDivida).values(
+    crono.parcelas.map((p) => {
+      const paga = p.vencimento < hojeData;
+      return { empresaId: padariaId, dividaId: d.id, ...p, status: paga ? ("pago" as const) : ("a_pagar" as const), pagoEm: paga ? p.vencimento : null };
+    }),
+  );
+}
+console.log(`Dívidas: ${contratos.length} contratos com parcelas.`);
 
 await cliente.end();
 console.log("\nPronto! Entre com dono@urutau.dev / urutau123 (também colaborador@ e contador@).");

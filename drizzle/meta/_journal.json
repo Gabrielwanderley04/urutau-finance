@@ -8,6 +8,20 @@
       "when": 1792709802283,
       "tag": "0000_fase1_fundacao",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792711274564,
+      "tag": "0001_fase2_funcionarios_dividas",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792711275343,
+      "tag": "0002_fase2_parametros_iniciais",
+      "breakpoints": true
     }
   ]
 }
