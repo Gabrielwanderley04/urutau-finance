@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* Marca urutau: #141B34 (noite), #F5C518 (destaque), #E9E6E0 (claro) */
+:root,
+:root[data-theme="escuro"] {
+  --fundo: #141b34;
+  --superficie: #1c2548;
+  --superficie-2: #253058;
+  --borda: #34406b;
+  --texto: #e9e6e0;
+  --texto-suave: #a9adc0;
+  --destaque: #f5c518;
+  --destaque-texto: #f5c518; /* números-chave */
+  --sobre-destaque: #141b34;
+  --negativo: #ff7b7b;
+  --negativo-fundo: rgba(255, 123, 123, 0.12);
+  --positivo: #6ee7a8;
+  --aviso-fundo: rgba(245, 197, 24, 0.1);
+  --serie-faturamento: #b58c00;
+  --serie-despesas: #6a78e6;
+  --serie-lucro: #16a08e;
+  color-scheme: dark;
+}
+
+:root[data-theme="claro"] {
+  --fundo: #e9e6e0;
+  --superficie: #f7f5f1;
+  --superficie-2: #ffffff;
+  --borda: #cfcac0;
+  --texto: #141b34;
+  --texto-suave: #545a72;
+  --destaque: #f5c518;
+  --destaque-texto: #8a6a00; /* amarelo não tem contraste sobre fundo claro */
+  --sobre-destaque: #141b34;
+  --negativo: #c0262d;
+  --negativo-fundo: rgba(192, 38, 45, 0.08);
+  --positivo: #1d7a4a;
+  --aviso-fundo: rgba(245, 197, 24, 0.18);
+  --serie-faturamento: #a87f00;
+  --serie-despesas: #4f5bd5;
+  --serie-lucro: #00917f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="escuro"]) {
+    --fundo: #e9e6e0;
+    --superficie: #f7f5f1;
+    --superficie-2: #ffffff;
+    --borda: #cfcac0;
+    --texto: #141b34;
+    --texto-suave: #545a72;
+    --destaque-texto: #8a6a00;
+    --negativo: #c0262d;
+    --negativo-fundo: rgba(192, 38, 45, 0.08);
+    --positivo: #1d7a4a;
+    --aviso-fundo: rgba(245, 197, 24, 0.18);
+    --serie-faturamento: #a87f00;
+    --serie-despesas: #4f5bd5;
+    --serie-lucro: #00917f;
+    color-scheme: light;
+  }
+}
+
+@theme inline {
+  --color-fundo: var(--fundo);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-borda: var(--borda);
+  --color-texto: var(--texto);
+  --color-suave: var(--texto-suave);
+  --color-destaque: var(--destaque);
+  --color-destaque-texto: var(--destaque-texto);
+  --color-sobre-destaque: var(--sobre-destaque);
+  --color-negativo: var(--negativo);
+  --color-negativo-fundo: var(--negativo-fundo);
+  --color-positivo: var(--positivo);
+  --color-aviso-fundo: var(--aviso-fundo);
+  --font-titulo: var(--fonte-titulo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--fonte-texto), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+}
+
+.numero {
+  font-family: var(--font-titulo);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Campos de formulário */
+.campo {
+  @apply block w-full rounded-xl border border-borda bg-superficie-2 px-4 py-3 text-base text-texto outline-none;
+  min-height: 48px;
+}
+.campo:focus {
+  border-color: var(--destaque);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destaque) 30%, transparent);
+}
+.rotulo {
+  @apply mb-1.5 block text-sm font-medium text-suave;
+}
+.btn-principal {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-destaque px-5 py-3 font-titulo text-base font-bold text-sobre-destaque active:scale-[.98] disabled:opacity-60;
+}
+.btn-secundario {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-borda bg-superficie px-5 py-3 text-base font-medium text-texto active:scale-[.98];
+}
+.btn-perigo {
+  @apply inline-flex min-h-12 items-center justify-center rounded-xl border border-negativo px-5 py-3 text-base font-medium text-negativo;
+}
+.cartao {
+  @apply rounded-2xl border border-borda bg-superficie p-4;
+}
