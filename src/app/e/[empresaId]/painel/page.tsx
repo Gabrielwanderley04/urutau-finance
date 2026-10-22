@@ -2,10 +2,11 @@ import Link from "next/link";
 import { Ajuda } from "@/components/Ajuda";
 import { GraficoMeses } from "@/components/GraficoMeses";
 import { SeletorMes } from "@/components/SeletorMes";
+import { AVISO_ESTIMATIVA } from "@/components/ImpostoDetalhe";
 import { Valor } from "@/components/Valor";
 import { obterDb } from "@/db";
 import { formatarDataCurta, hoje, mesAtual, mesValido, nomeDoMes } from "@/lib/datas";
-import { formatarPcm, formatarReais } from "@/lib/dinheiro";
+import { formatarPcm, formatarReais, razaoPcm } from "@/lib/dinheiro";
 import { exigirAcesso } from "@/lib/servidor/acesso";
 import { sincronizarFolha } from "@/lib/servidor/folha";
 import { carregarPainel } from "@/lib/servidor/painel";
@@ -54,7 +55,7 @@ export default async function Painel({
   const hojeData = hoje();
   const db = obterDb();
   await sincronizarFolha(db, empresa, mes, atual);
-  const { resumo: r, fontes, grafico, vencimentos, dividas } = await carregarPainel(db, empresaId, mes, hojeData);
+  const { resumo: r, fontes, grafico, vencimentos, dividas, imposto } = await carregarPainel(db, empresa, mes, hojeData);
   const base = `/e/${empresaId}`;
   const nome = nomeDoMes(mes);
   const totalPagar = vencimentos.filter((v) => v.tipo === "pagar").reduce((t, v) => t + v.valor, 0);
@@ -93,8 +94,12 @@ export default async function Painel({
 
         <Cartao
           titulo="Impostos estimados"
-          ajuda={<>Estimativa do imposto sobre as vendas do mês, conforme o seu regime. Valor estimado. Confirme com o seu contador.</>}
-          rodape="Cálculo chega na próxima versão"
+          ajuda={<>Estimativa do imposto do mês conforme o seu regime ({imposto.regime === "mei" ? "DAS fixo do MEI" : imposto.regime === "simples" ? "Simples Nacional" : imposto.regime === "presumido" ? "Lucro Presumido" : "Lucro Real"}). {AVISO_ESTIMATIVA}</>}
+          rodape={
+            imposto.regime === "real" ? "Cálculo disponível em breve. Consulte seu contador." :
+            imposto.regime === "erro" ? <span className="text-negativo">{imposto.mensagem}</span> :
+            <Link href={`${base}/impostos?mes=${mes}`} className="underline">{imposto.regime === "simples" ? `Alíquota efetiva ${formatarPcm(razaoPcm(r.impostos, r.faturamento) ?? 0, 2)} · ` : ""}como calculamos</Link>
+          }
         >
           {r.impostosDisponiveis ? <Valor centavos={r.impostos} tamanho="md" /> : <span className="numero text-2xl font-bold text-suave">—</span>}
         </Cartao>
@@ -131,11 +136,14 @@ export default async function Painel({
         </Cartao>
       </div>
 
-      {!r.impostosDisponiveis && (
-        <p className="aviso">
-          ⚠ O lucro acima ainda <strong>não desconta impostos</strong>. O cálculo dos impostos chega na próxima versão.
-        </p>
+      {imposto.regime === "mei" && (imposto.mei.situacao !== "ok") && (
+        <Link href={`${base}/impostos?mes=${mes}`} className={`block rounded-xl border p-3 text-sm ${imposto.mei.situacao === "alerta" ? "aviso" : "border-negativo bg-negativo-fundo text-negativo"}`}>
+          {imposto.mei.situacao === "alerta" ? "⚠" : "▼"} Faturamento do ano em <strong>{formatarPcm(imposto.mei.usoDoLimite, 0)}</strong> do limite do MEI ({formatarReais(imposto.mei.faturamentoAno)} de {formatarReais(imposto.mei.limite)}). Ver detalhes ›
+        </Link>
       )}
+      <p className="text-center text-xs text-suave">
+        {r.impostosDisponiveis ? <>⚠ Impostos: {AVISO_ESTIMATIVA}</> : <>O lucro não desconta impostos: {imposto.regime === "real" ? "cálculo do Lucro Real disponível em breve. Consulte seu contador." : "não foi possível estimá-los."}</>}
+      </p>
 
       <section className="cartao relative">
         <div className="mb-2 flex items-start justify-between gap-2">

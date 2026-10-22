@@ -21,6 +21,7 @@ async function novaEmpresa(nome: string) {
     const cats = await tx.select().from(categoriasDespesa).where(eq(categoriasDespesa.empresaId, e.id));
     return {
       id: e.id,
+      empresa: e,
       fonte: (nome: string) => fontes.find((f) => f.nome === nome)!.id,
       cat: (chave: string) => cats.find((c) => c.chaveSistema === chave)!.id,
     };
@@ -93,24 +94,28 @@ describe("números do painel", () => {
     ]);
   });
 
-  it("calcula faturamento, despesas, lucro, margem e caixa só com dados da empresa", async () => {
-    const p = await carregarPainel(db, A.id, "2026-10", "2026-10-22");
+  it("calcula faturamento, despesas, impostos, lucro, margem e caixa só com dados da empresa", async () => {
+    const p = await carregarPainel(db, A.empresa, "2026-10", "2026-10-22");
     expect(p.resumo.faturamento).toBe(2_000_000);
-    expect(p.resumo.despesas).toBe(1_200_000); // DAS não entra no lucro
-    expect(p.resumo.lucro).toBe(800_000);
-    expect(p.resumo.margem).toBe(40_000); // 40%
+    expect(p.resumo.despesas).toBe(1_200_000); // DAS pago não entra no lucro…
+    // …porque o lucro já desconta o imposto estimado. RBT12 = R$ 500 (setembro) → 1ª faixa:
+    // comércio R$ 13.000 × 4% (Anexo I) + serviço R$ 7.000 × 6% (Anexo III) = R$ 940
+    expect(p.imposto).toMatchObject({ regime: "simples", total: 94_000 });
+    expect(p.resumo.impostos).toBe(94_000);
+    expect(p.resumo.lucro).toBe(2_000_000 - 94_000 - 1_200_000);
+    expect(p.resumo.margem).toBe(35_300); // 35,3%
     // Caixa: recebidas em out. (10.000 + 3.000 + 500 de setembro) − pagas em out. (6.000 + 2.000 + 900)
     expect(p.resumo.caixa).toEqual({ entradas: 1_350_000, saidas: 890_000, saldo: 460_000 });
   });
 
-  it("ponto de equilíbrio usa fixas e variáveis do mês", async () => {
-    const p = await carregarPainel(db, A.id, "2026-10", "2026-10-22");
-    // fixas 6.000; variáveis 6.000 → contribuição 70% → PE = 6.000 / 0,7 = 8.571,43
-    expect(p.resumo.pontoEquilibrio).toMatchObject({ tipo: "valor", valor: 857_143 });
+  it("ponto de equilíbrio usa fixas, variáveis e impostos do mês", async () => {
+    const p = await carregarPainel(db, A.empresa, "2026-10", "2026-10-22");
+    // fixas 6.000; variáveis 6.000 + impostos 940 → contribuição 65,3% → PE = 6.000 ÷ 0,653 = 9.188,36…
+    expect(p.resumo.pontoEquilibrio).toMatchObject({ tipo: "valor", valor: 918_837 });
   });
 
   it("participação das fontes", async () => {
-    const p = await carregarPainel(db, A.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, A.empresa, "2026-10", "2026-10-22");
     expect(p.fontes.map((f) => [f.nome, f.participacao])).toEqual([
       ["Loja física", 50_000],
       ["Serviços", 35_000],
@@ -119,16 +124,16 @@ describe("números do painel", () => {
   });
 
   it("gráfico traz 12 meses terminando no mês escolhido", async () => {
-    const p = await carregarPainel(db, A.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, A.empresa, "2026-10", "2026-10-22");
     expect(p.grafico).toHaveLength(12);
-    expect(p.grafico.at(-1)).toMatchObject({ mes: "2026-10", faturamento: 2_000_000, lucro: 800_000 });
+    expect(p.grafico.at(-1)).toMatchObject({ mes: "2026-10", faturamento: 2_000_000, lucro: 706_000 });
     expect(p.grafico.at(-2)).toMatchObject({ mes: "2026-09", faturamento: 50_000 });
   });
 
   it("vence em 7 dias lista contas a pagar e a receber (inclusive atrasadas)", async () => {
-    const p = await carregarPainel(db, A.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, A.empresa, "2026-10", "2026-10-22");
     expect(p.vencimentos.map((v) => [v.tipo, v.valor, v.atrasado])).toEqual([["pagar", 400_000, false]]);
-    const depois = await carregarPainel(db, A.id, "2026-11", "2026-11-10");
+    const depois = await carregarPainel(db, A.empresa, "2026-11", "2026-11-10");
     expect(depois.vencimentos.map((v) => [v.tipo, v.valor, v.atrasado])).toEqual([
       ["pagar", 400_000, true],
       ["receber", 700_000, false],
@@ -136,7 +141,7 @@ describe("números do painel", () => {
   });
 
   it("empresa B não vê nada da A", async () => {
-    const p = await carregarPainel(db, B.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, B.empresa, "2026-10", "2026-10-22");
     expect(p.resumo.faturamento).toBe(12_345_600);
     expect(p.resumo.despesas).toBe(5_000_000);
     expect(p.fontes).toHaveLength(1);

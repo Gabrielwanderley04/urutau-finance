@@ -23,6 +23,10 @@ Acessos de exemplo (senha `urutau123`):
 | `colaborador@urutau.dev` | Colaborador | Lança vendas/despesas e vê só o que lançou |
 | `contador@urutau.dev` | Contador | Painel e lançamentos, somente leitura |
 
+Empresas de exemplo do `dono@`: **Padaria e Café Urutau** (Simples, Anexos I e III, com funcionários e dívidas),
+**Marina Doces** (MEI perto do limite anual), **Estúdio Urutau Design** (Simples Anexo V com Fator R, que passa
+para o Anexo III depois de contratar) e **Urutau Manutenção Industrial** (Lucro Presumido, com adicional do IRPJ e encargos).
+
 ## Testes
 
 ```bash
@@ -52,6 +56,19 @@ npm run lint    # checagem de tipos
   No caixa entram só salário, FGTS, encargos sobre o salário e benefícios: as reservas saem quando o 13º e as férias forem pagos.
 - **Dívidas**: parcelas pela tabela Price, calculadas com frações exatas (BigInt). Os juros são despesa no mês do vencimento;
   a amortização só reduz o saldo e o caixa. O banco garante `valor = juros + amortização` em cada parcela.
+- **Impostos** (`src/lib/calculos/{simples,mei,presumido,impostos}.ts`), sempre com o aviso "Valor estimado. Confirme com o seu contador.":
+  - *Simples*: RBT12 = soma dos 12 meses anteriores (no início de atividade, mês × 12 ou média × 12, como na
+    Resolução CGSN 140). Imposto = receita × (RBT12 × nominal − parcela a deduzir) ÷ RBT12, em fração exata.
+    Cada natureza (comércio/serviço) usa o seu anexo com o mesmo RBT12. Fator R = folha 12 meses ÷ RBT12
+    (folha = salários + FGTS + INSS patronal + 13º pela reserva mensal + pró-labore); ≥ 28% → Anexo III.
+  - *MEI*: DAS fixo por atividade e por ano; alerta a partir de 80% do limite (proporcional no ano de abertura).
+  - *Lucro Presumido*: presunção 8%/32% (IRPJ) e 12%/32% (CSLL), IRPJ 15% + adicional 10% acima de R$ 20 mil/mês,
+    CSLL 9%, PIS 0,65%, Cofins 3%, ISS/ICMS da empresa. Acréscimo da LC 224/2025 só sobre a receita anual acima de R$ 5 milhões.
+    A tela mostra também a apuração do trimestre até o mês.
+  - *Lucro Real*: "Cálculo disponível em breve. Consulte seu contador."
+  - Tabelas em `simples_faixas` e `parametros_fiscais` (migração `0004`). Quando a CBS substituir PIS/Cofins,
+    feche a vigência de `pis_cumulativo`/`cofins_cumulativo` e cadastre a nova regra.
+  - `receitas_historicas`: faturamento e folha de meses anteriores ao urutau (tela "Faturamento anterior").
 - **Preparado para estoque**: `empresas.tratamento_mercadorias` e `despesas.compra_id` já existem.
 
 ## Estrutura
@@ -65,7 +82,7 @@ src/
   components/          UI compartilhada
   db/                  schema Drizzle, conexão, categorias e fontes padrão
   lib/
-    calculos/          cálculos puros: painel, folha, dívidas, parâmetros (e impostos na Fase 3)
+    calculos/          cálculos puros: painel, folha, dívidas, parâmetros, Simples, MEI e Presumido
     servidor/          autenticação, acesso, consultas e server actions
 drizzle/               migrações SQL
 scripts/               migrate, reset, seed
@@ -76,5 +93,5 @@ tests/                 Vitest
 
 1. ✅ Fundação: login, empresa, categorias, vendas, despesas e painel básico
 2. ✅ Funcionários com custo real e dívidas com parcelas
-3. Impostos: MEI e Simples Nacional, depois Lucro Presumido
+3. ✅ Impostos: MEI, Simples Nacional (com Fator R) e Lucro Presumido
 4. Relatórios, exportação, despesas recorrentes e alertas de vencimento

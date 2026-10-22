@@ -155,8 +155,9 @@ export const receitasHistoricas = pgTable(
       .notNull()
       .references(() => empresas.id, { onDelete: "cascade" }),
     competencia: text("competencia").notNull(), // AAAA-MM
-    receitaCentavos: centavos("receita_centavos").notNull().default(0),
-    folhaCentavos: centavos("folha_centavos").notNull().default(0),
+    /** null = não informado (vale o que foi lançado no sistema). */
+    receitaCentavos: centavos("receita_centavos"),
+    folhaCentavos: centavos("folha_centavos"),
     atualizadoEm: atualizadoEm(),
   },
   (t) => [
@@ -304,6 +305,26 @@ export const parametrosFiscais = pgTable(
   (t) => [
     index("parametros_chave_idx").on(t.chave, t.vigenciaInicio),
     check("parametros_vigencia", sql`${t.vigenciaFim} is null or ${t.vigenciaFim} >= ${t.vigenciaInicio}`),
+  ],
+);
+
+/** Tabelas dos Anexos do Simples Nacional (LC 123/2006, Anexos I a V). */
+export const simplesFaixas = pgTable(
+  "simples_faixas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    anexo: anexoEnum("anexo").notNull(),
+    faixa: integer("faixa").notNull(),
+    /** Limite superior da faixa (RBT12), inclusivo. */
+    receitaAteCentavos: centavos("receita_ate_centavos").notNull(),
+    aliquotaNominalPcm: integer("aliquota_nominal_pcm").notNull(),
+    parcelaDeduzirCentavos: centavos("parcela_deduzir_centavos").notNull(),
+    vigenciaInicio: date("vigencia_inicio").notNull(),
+    vigenciaFim: date("vigencia_fim"),
+  },
+  (t) => [
+    unique("simples_faixas_uq").on(t.anexo, t.faixa, t.vigenciaInicio),
+    check("sf_valores", sql`${t.receitaAteCentavos} > 0 and ${t.aliquotaNominalPcm} > 0 and ${t.parcelaDeduzirCentavos} >= 0`),
   ],
 );
 

@@ -1,0 +1,2123 @@
+{
+  "id": "0d610415-1ba3-4ada-8102-bc8511209764",
+  "prevId": "412de136-9d30-40ae-9450-e4133db27ebf",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.categorias_despesa": {
+      "name": "categorias_despesa",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave_sistema": {
+          "name": "chave_sistema",
+          "type": "chave_categoria",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "comportamento": {
+          "name": "comportamento",
+          "type": "comportamento_custo",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entra_no_lucro": {
+          "name": "entra_no_lucro",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "entra_na_folha_fator_r": {
+          "name": "entra_na_folha_fator_r",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "categorias_despesa_empresa_id_empresas_id_fk": {
+          "name": "categorias_despesa_empresa_id_empresas_id_fk",
+          "tableFrom": "categorias_despesa",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "categorias_empresa_id_uq": {
+          "name": "categorias_empresa_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "id"
+          ]
+        },
+        "categorias_chave_uq": {
+          "name": "categorias_chave_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "chave_sistema"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.despesas": {
+      "name": "despesas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "categoria_id": {
+          "name": "categoria_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_despesa",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vencimento": {
+          "name": "vencimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pago_em": {
+          "name": "pago_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "origem": {
+          "name": "origem",
+          "type": "origem_despesa",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "recorrencia_id": {
+          "name": "recorrencia_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "compra_id": {
+          "name": "compra_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "excluido_em": {
+          "name": "excluido_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "despesas_empresa_data_idx": {
+          "name": "despesas_empresa_data_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "despesas_empresa_venc_idx": {
+          "name": "despesas_empresa_venc_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "vencimento",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "despesas_empresa_id_empresas_id_fk": {
+          "name": "despesas_empresa_id_empresas_id_fk",
+          "tableFrom": "despesas",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "despesas_criado_por_usuarios_id_fk": {
+          "name": "despesas_criado_por_usuarios_id_fk",
+          "tableFrom": "despesas",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "despesas_categoria_fk": {
+          "name": "despesas_categoria_fk",
+          "tableFrom": "despesas",
+          "tableTo": "categorias_despesa",
+          "columnsFrom": [
+            "empresa_id",
+            "categoria_id"
+          ],
+          "columnsTo": [
+            "empresa_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "despesas_valor_positivo": {
+          "name": "despesas_valor_positivo",
+          "value": "\"despesas\".\"valor_centavos\" > 0"
+        },
+        "despesas_pago_coerente": {
+          "name": "despesas_pago_coerente",
+          "value": "(\"despesas\".\"status\" = 'pago') = (\"despesas\".\"pago_em\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.dividas": {
+      "name": "dividas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "credor": {
+          "name": "credor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_divida",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_original_centavos": {
+          "name": "valor_original_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saldo_devedor_centavos": {
+          "name": "saldo_devedor_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "juros_mensais_pcm": {
+          "name": "juros_mensais_pcm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "num_parcelas": {
+          "name": "num_parcelas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_parcela_centavos": {
+          "name": "valor_parcela_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parcela_informada": {
+          "name": "parcela_informada",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "dia_vencimento": {
+          "name": "dia_vencimento",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "primeiro_vencimento": {
+          "name": "primeiro_vencimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observacao": {
+          "name": "observacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "excluido_em": {
+          "name": "excluido_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "dividas_empresa_id_empresas_id_fk": {
+          "name": "dividas_empresa_id_empresas_id_fk",
+          "tableFrom": "dividas",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "dividas_empresa_id_uq": {
+          "name": "dividas_empresa_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "dividas_valores": {
+          "name": "dividas_valores",
+          "value": "\"dividas\".\"valor_original_centavos\" > 0 and \"dividas\".\"saldo_devedor_centavos\" > 0 and \"dividas\".\"valor_parcela_centavos\" > 0"
+        },
+        "dividas_juros": {
+          "name": "dividas_juros",
+          "value": "\"dividas\".\"juros_mensais_pcm\" >= 0 and \"dividas\".\"juros_mensais_pcm\" <= 100000"
+        },
+        "dividas_parcelas": {
+          "name": "dividas_parcelas",
+          "value": "\"dividas\".\"num_parcelas\" between 1 and 600"
+        },
+        "dividas_dia": {
+          "name": "dividas_dia",
+          "value": "\"dividas\".\"dia_vencimento\" between 1 and 31"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.empresa_parametros": {
+      "name": "empresa_parametros",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave": {
+          "name": "chave",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vigencia_inicio": {
+          "name": "vigencia_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vigencia_fim": {
+          "name": "vigencia_fim",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "empresa_parametros_empresa_id_empresas_id_fk": {
+          "name": "empresa_parametros_empresa_id_empresas_id_fk",
+          "tableFrom": "empresa_parametros",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "empresa_parametros_uq": {
+          "name": "empresa_parametros_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "chave",
+            "vigencia_inicio"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "ep_vigencia": {
+          "name": "ep_vigencia",
+          "value": "\"empresa_parametros\".\"vigencia_fim\" is null or \"empresa_parametros\".\"vigencia_fim\" >= \"empresa_parametros\".\"vigencia_inicio\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.empresa_usuarios": {
+      "name": "empresa_usuarios",
+      "schema": "",
+      "columns": {
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "papel": {
+          "name": "papel",
+          "type": "papel",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "eu_usuario_idx": {
+          "name": "eu_usuario_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "empresa_usuarios_empresa_id_empresas_id_fk": {
+          "name": "empresa_usuarios_empresa_id_empresas_id_fk",
+          "tableFrom": "empresa_usuarios",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "empresa_usuarios_usuario_id_usuarios_id_fk": {
+          "name": "empresa_usuarios_usuario_id_usuarios_id_fk",
+          "tableFrom": "empresa_usuarios",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "empresa_usuarios_empresa_id_usuario_id_pk": {
+          "name": "empresa_usuarios_empresa_id_usuario_id_pk",
+          "columns": [
+            "empresa_id",
+            "usuario_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.empresas": {
+      "name": "empresas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cnpj": {
+          "name": "cnpj",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "atividade": {
+          "name": "atividade",
+          "type": "atividade",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cidade": {
+          "name": "cidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "uf": {
+          "name": "uf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "regime": {
+          "name": "regime",
+          "type": "regime_tributario",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anexo_comercio": {
+          "name": "anexo_comercio",
+          "type": "anexo_simples",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anexo_servicos": {
+          "name": "anexo_servicos",
+          "type": "anexo_simples",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sujeito_fator_r": {
+          "name": "sujeito_fator_r",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "aliquota_iss_pcm": {
+          "name": "aliquota_iss_pcm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aliquota_icms_pcm": {
+          "name": "aliquota_icms_pcm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inicio_atividade": {
+          "name": "inicio_atividade",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tratamento_mercadorias": {
+          "name": "tratamento_mercadorias",
+          "type": "tratamento_mercadorias",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'despesa_na_compra'"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "empresas_cnpj_formato": {
+          "name": "empresas_cnpj_formato",
+          "value": "\"empresas\".\"cnpj\" is null or \"empresas\".\"cnpj\" ~ '^[0-9]{14}$'"
+        },
+        "empresas_uf_formato": {
+          "name": "empresas_uf_formato",
+          "value": "\"empresas\".\"uf\" is null or \"empresas\".\"uf\" ~ '^[A-Z]{2}$'"
+        },
+        "empresas_anexo_comercio": {
+          "name": "empresas_anexo_comercio",
+          "value": "\"empresas\".\"anexo_comercio\" is null or \"empresas\".\"anexo_comercio\" in ('I','II')"
+        },
+        "empresas_anexo_servicos": {
+          "name": "empresas_anexo_servicos",
+          "value": "\"empresas\".\"anexo_servicos\" is null or \"empresas\".\"anexo_servicos\" in ('III','IV','V')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.folha_mensal": {
+      "name": "folha_mensal",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "funcionario_id": {
+          "name": "funcionario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dias_trabalhados": {
+          "name": "dias_trabalhados",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "salario": {
+          "name": "salario",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fgts": {
+          "name": "fgts",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provisao_13": {
+          "name": "provisao_13",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provisao_ferias": {
+          "name": "provisao_ferias",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fgts_provisoes": {
+          "name": "fgts_provisoes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inss_patronal": {
+          "name": "inss_patronal",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rat": {
+          "name": "rat",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "terceiros": {
+          "name": "terceiros",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "beneficios": {
+          "name": "beneficios",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "custo_total": {
+          "name": "custo_total",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_caixa": {
+          "name": "valor_caixa",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vencimento": {
+          "name": "vencimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_pagamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'a_pagar'"
+        },
+        "pago_em": {
+          "name": "pago_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "folha_empresa_comp_idx": {
+          "name": "folha_empresa_comp_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "competencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "folha_mensal_empresa_id_empresas_id_fk": {
+          "name": "folha_mensal_empresa_id_empresas_id_fk",
+          "tableFrom": "folha_mensal",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "folha_funcionario_fk": {
+          "name": "folha_funcionario_fk",
+          "tableFrom": "folha_mensal",
+          "tableTo": "funcionarios",
+          "columnsFrom": [
+            "empresa_id",
+            "funcionario_id"
+          ],
+          "columnsTo": [
+            "empresa_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "folha_func_comp_uq": {
+          "name": "folha_func_comp_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "funcionario_id",
+            "competencia"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "folha_pago_coerente": {
+          "name": "folha_pago_coerente",
+          "value": "(\"folha_mensal\".\"status\" = 'pago') = (\"folha_mensal\".\"pago_em\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.fontes_receita": {
+      "name": "fontes_receita",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "natureza": {
+          "name": "natureza",
+          "type": "natureza_receita",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fontes_receita_empresa_id_empresas_id_fk": {
+          "name": "fontes_receita_empresa_id_empresas_id_fk",
+          "tableFrom": "fontes_receita",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fontes_empresa_id_uq": {
+          "name": "fontes_empresa_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.funcionarios": {
+      "name": "funcionarios",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cargo": {
+          "name": "cargo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "salario_bruto_centavos": {
+          "name": "salario_bruto_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "admissao": {
+          "name": "admissao",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "desligamento": {
+          "name": "desligamento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vt_centavos": {
+          "name": "vt_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "vr_centavos": {
+          "name": "vr_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "plano_saude_centavos": {
+          "name": "plano_saude_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "outros_beneficios_centavos": {
+          "name": "outros_beneficios_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "folha_desde": {
+          "name": "folha_desde",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "excluido_em": {
+          "name": "excluido_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "funcionarios_empresa_id_empresas_id_fk": {
+          "name": "funcionarios_empresa_id_empresas_id_fk",
+          "tableFrom": "funcionarios",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "funcionarios_empresa_id_uq": {
+          "name": "funcionarios_empresa_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "empresa_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "func_salario": {
+          "name": "func_salario",
+          "value": "\"funcionarios\".\"salario_bruto_centavos\" > 0"
+        },
+        "func_beneficios": {
+          "name": "func_beneficios",
+          "value": "\"funcionarios\".\"vt_centavos\" >= 0 and \"funcionarios\".\"vr_centavos\" >= 0 and \"funcionarios\".\"plano_saude_centavos\" >= 0 and \"funcionarios\".\"outros_beneficios_centavos\" >= 0"
+        },
+        "func_datas": {
+          "name": "func_datas",
+          "value": "\"funcionarios\".\"desligamento\" is null or \"funcionarios\".\"desligamento\" >= \"funcionarios\".\"admissao\""
+        },
+        "func_folha_desde": {
+          "name": "func_folha_desde",
+          "value": "\"funcionarios\".\"folha_desde\" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.parametros_fiscais": {
+      "name": "parametros_fiscais",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "chave": {
+          "name": "chave",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unidade": {
+          "name": "unidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fonte_legal": {
+          "name": "fonte_legal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vigencia_inicio": {
+          "name": "vigencia_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vigencia_fim": {
+          "name": "vigencia_fim",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "parametros_chave_idx": {
+          "name": "parametros_chave_idx",
+          "columns": [
+            {
+              "expression": "chave",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "vigencia_inicio",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "parametros_vigencia": {
+          "name": "parametros_vigencia",
+          "value": "\"parametros_fiscais\".\"vigencia_fim\" is null or \"parametros_fiscais\".\"vigencia_fim\" >= \"parametros_fiscais\".\"vigencia_inicio\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.parcelas_divida": {
+      "name": "parcelas_divida",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "divida_id": {
+          "name": "divida_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "numero": {
+          "name": "numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vencimento": {
+          "name": "vencimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "juros": {
+          "name": "juros",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amortizacao": {
+          "name": "amortizacao",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saldo_apos": {
+          "name": "saldo_apos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_pagamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'a_pagar'"
+        },
+        "pago_em": {
+          "name": "pago_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "parcelas_empresa_venc_idx": {
+          "name": "parcelas_empresa_venc_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "vencimento",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "parcelas_divida_empresa_id_empresas_id_fk": {
+          "name": "parcelas_divida_empresa_id_empresas_id_fk",
+          "tableFrom": "parcelas_divida",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "parcelas_divida_fk": {
+          "name": "parcelas_divida_fk",
+          "tableFrom": "parcelas_divida",
+          "tableTo": "dividas",
+          "columnsFrom": [
+            "empresa_id",
+            "divida_id"
+          ],
+          "columnsTo": [
+            "empresa_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "parcelas_divida_numero_uq": {
+          "name": "parcelas_divida_numero_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "divida_id",
+            "numero"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "parcelas_valores": {
+          "name": "parcelas_valores",
+          "value": "\"parcelas_divida\".\"valor\" = \"parcelas_divida\".\"juros\" + \"parcelas_divida\".\"amortizacao\" and \"parcelas_divida\".\"juros\" >= 0 and \"parcelas_divida\".\"amortizacao\" >= 0"
+        },
+        "parcelas_pago_coerente": {
+          "name": "parcelas_pago_coerente",
+          "value": "(\"parcelas_divida\".\"status\" = 'pago') = (\"parcelas_divida\".\"pago_em\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.receitas_historicas": {
+      "name": "receitas_historicas",
+      "schema": "",
+      "columns": {
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "receita_centavos": {
+          "name": "receita_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "folha_centavos": {
+          "name": "folha_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "receitas_historicas_empresa_id_empresas_id_fk": {
+          "name": "receitas_historicas_empresa_id_empresas_id_fk",
+          "tableFrom": "receitas_historicas",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "receitas_historicas_empresa_id_competencia_pk": {
+          "name": "receitas_historicas_empresa_id_competencia_pk",
+          "columns": [
+            "empresa_id",
+            "competencia"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "rh_competencia": {
+          "name": "rh_competencia",
+          "value": "\"receitas_historicas\".\"competencia\" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'"
+        },
+        "rh_valores": {
+          "name": "rh_valores",
+          "value": "\"receitas_historicas\".\"receita_centavos\" >= 0 and \"receitas_historicas\".\"folha_centavos\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sessoes": {
+      "name": "sessoes",
+      "schema": "",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expira_em": {
+          "name": "expira_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "sessoes_usuario_idx": {
+          "name": "sessoes_usuario_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sessoes_usuario_id_usuarios_id_fk": {
+          "name": "sessoes_usuario_id_usuarios_id_fk",
+          "tableFrom": "sessoes",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.simples_faixas": {
+      "name": "simples_faixas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "anexo": {
+          "name": "anexo",
+          "type": "anexo_simples",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "faixa": {
+          "name": "faixa",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "receita_ate_centavos": {
+          "name": "receita_ate_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aliquota_nominal_pcm": {
+          "name": "aliquota_nominal_pcm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parcela_deduzir_centavos": {
+          "name": "parcela_deduzir_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vigencia_inicio": {
+          "name": "vigencia_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vigencia_fim": {
+          "name": "vigencia_fim",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "simples_faixas_uq": {
+          "name": "simples_faixas_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "anexo",
+            "faixa",
+            "vigencia_inicio"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "sf_valores": {
+          "name": "sf_valores",
+          "value": "\"simples_faixas\".\"receita_ate_centavos\" > 0 and \"simples_faixas\".\"aliquota_nominal_pcm\" > 0 and \"simples_faixas\".\"parcela_deduzir_centavos\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.usuarios": {
+      "name": "usuarios",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "senha_hash": {
+          "name": "senha_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superadmin": {
+          "name": "superadmin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "usuarios_email_unique": {
+          "name": "usuarios_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendas": {
+      "name": "vendas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "fonte_receita_id": {
+          "name": "fonte_receita_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "forma_pagamento": {
+          "name": "forma_pagamento",
+          "type": "forma_pagamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_venda",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_recebimento": {
+          "name": "data_recebimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "excluido_em": {
+          "name": "excluido_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "vendas_empresa_data_idx": {
+          "name": "vendas_empresa_data_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vendas_empresa_receb_idx": {
+          "name": "vendas_empresa_receb_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data_recebimento",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "vendas_empresa_id_empresas_id_fk": {
+          "name": "vendas_empresa_id_empresas_id_fk",
+          "tableFrom": "vendas",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "vendas_criado_por_usuarios_id_fk": {
+          "name": "vendas_criado_por_usuarios_id_fk",
+          "tableFrom": "vendas",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "vendas_fonte_fk": {
+          "name": "vendas_fonte_fk",
+          "tableFrom": "vendas",
+          "tableTo": "fontes_receita",
+          "columnsFrom": [
+            "empresa_id",
+            "fonte_receita_id"
+          ],
+          "columnsTo": [
+            "empresa_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "vendas_valor_positivo": {
+          "name": "vendas_valor_positivo",
+          "value": "\"vendas\".\"valor_centavos\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.anexo_simples": {
+      "name": "anexo_simples",
+      "schema": "public",
+      "values": [
+        "I",
+        "II",
+        "III",
+        "IV",
+        "V"
+      ]
+    },
+    "public.atividade": {
+      "name": "atividade",
+      "schema": "public",
+      "values": [
+        "comercio",
+        "servicos",
+        "ambos"
+      ]
+    },
+    "public.chave_categoria": {
+      "name": "chave_categoria",
+      "schema": "public",
+      "values": [
+        "contas_fixas",
+        "funcionarios",
+        "mercadorias",
+        "impostos",
+        "pro_labore",
+        "marketing",
+        "juros_tarifas",
+        "outras"
+      ]
+    },
+    "public.comportamento_custo": {
+      "name": "comportamento_custo",
+      "schema": "public",
+      "values": [
+        "fixo",
+        "variavel"
+      ]
+    },
+    "public.forma_pagamento": {
+      "name": "forma_pagamento",
+      "schema": "public",
+      "values": [
+        "dinheiro",
+        "pix",
+        "debito",
+        "credito",
+        "boleto",
+        "transferencia",
+        "outro"
+      ]
+    },
+    "public.natureza_receita": {
+      "name": "natureza_receita",
+      "schema": "public",
+      "values": [
+        "comercio",
+        "servico"
+      ]
+    },
+    "public.origem_despesa": {
+      "name": "origem_despesa",
+      "schema": "public",
+      "values": [
+        "manual",
+        "recorrente"
+      ]
+    },
+    "public.papel": {
+      "name": "papel",
+      "schema": "public",
+      "values": [
+        "dono",
+        "colaborador",
+        "contador"
+      ]
+    },
+    "public.regime_tributario": {
+      "name": "regime_tributario",
+      "schema": "public",
+      "values": [
+        "mei",
+        "simples",
+        "presumido",
+        "real"
+      ]
+    },
+    "public.status_despesa": {
+      "name": "status_despesa",
+      "schema": "public",
+      "values": [
+        "pago",
+        "a_pagar"
+      ]
+    },
+    "public.status_pagamento": {
+      "name": "status_pagamento",
+      "schema": "public",
+      "values": [
+        "pago",
+        "a_pagar"
+      ]
+    },
+    "public.status_venda": {
+      "name": "status_venda",
+      "schema": "public",
+      "values": [
+        "recebido",
+        "a_receber"
+      ]
+    },
+    "public.tipo_divida": {
+      "name": "tipo_divida",
+      "schema": "public",
+      "values": [
+        "emprestimo",
+        "financiamento",
+        "fornecedor",
+        "imposto_parcelado",
+        "cartao",
+        "outro"
+      ]
+    },
+    "public.tratamento_mercadorias": {
+      "name": "tratamento_mercadorias",
+      "schema": "public",
+      "values": [
+        "despesa_na_compra",
+        "cmv"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

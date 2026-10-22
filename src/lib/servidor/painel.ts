@@ -1,7 +1,7 @@
 import "server-only";
 import { type AnyColumn, and, asc, eq, gte, isNull, lt, lte, sql } from "drizzle-orm";
 import type { BancoDeDados } from "@/db";
-import { categoriasDespesa, despesas, dividas, folhaMensal, fontesReceita, parcelasDivida, vendas } from "@/db/schema";
+import { type Empresa, categoriasDespesa, despesas, dividas, folhaMensal, fontesReceita, parcelasDivida, vendas } from "@/db/schema";
 import {
   type DespesaAgregada,
   type FonteParticipacao,
@@ -9,7 +9,9 @@ import {
   participacaoPorFonte,
   resumirMes,
 } from "@/lib/calculos/painel";
-import { type Data, type Mes, intervaloDoMes, nomeDoMes, somarDias, ultimosMeses } from "@/lib/datas";
+import { calcularImpostoMes, type ImpostoMes } from "@/lib/calculos/impostos";
+import { type Data, type Mes, intervaloDoMes, nomeDoMes, somarDias, somarMeses, ultimosMeses } from "@/lib/datas";
+import { MESES_DE_HISTORICO, carregarSeries, carregarTabelasFiscais, empresaFiscal } from "./fiscal";
 
 type Coluna = AnyColumn;
 const soma = (col: Coluna) => sql<number>`coalesce(sum(${col}), 0)::bigint`.mapWith(Number);
@@ -39,18 +41,24 @@ export interface DadosPainel {
   grafico: PontoGrafico[];
   vencimentos: ItemVencimento[];
   dividas: { saldo: number; venceNoMes: number; quantidade: number };
+  imposto: ImpostoMes;
 }
-
-/** Lucro sem impostos enquanto a Fase 3 não chega: o painel avisa o usuário. */
-const IMPOSTO_INDISPONIVEL = null;
 
 export async function carregarPainel(
   db: BancoDeDados,
-  empresaId: string,
+  empresa: Empresa,
   mes: Mes,
   hojeData: Data,
 ): Promise<DadosPainel> {
+  const empresaId = empresa.id;
   const meses = ultimosMeses(mes, 12);
+  // Impostos de cada mês do gráfico: o RBT12 do mês mais antigo precisa de mais 12 meses antes dele.
+  const [tabelas, series] = await Promise.all([
+    carregarTabelasFiscais(db, empresaId),
+    carregarSeries(db, empresaId, somarMeses(meses[0], -MESES_DE_HISTORICO), mes),
+  ]);
+  const fiscal = empresaFiscal(empresa);
+  const impostos = new Map(meses.map((m) => [m, calcularImpostoMes(fiscal, m, series, tabelas)]));
   const inicio12 = intervaloDoMes(meses[0]).inicio;
   const { inicio, fim } = intervaloDoMes(mes);
 
@@ -182,7 +190,8 @@ export async function carregarPainel(
       despesas: despMap.get(m) ?? [],
       folha: folhaMap.get(m) ?? 0,
       juros: jurosMap.get(m) ?? 0,
-      impostosEstimados: IMPOSTO_INDISPONIVEL,
+      impostosEstimados: impostos.get(m)!.total,
+      impostoFixo: impostos.get(m)!.regime === "mei",
       entradasCaixa: 0,
       saidasCaixa: 0,
     });
@@ -194,7 +203,8 @@ export async function carregarPainel(
     despesas: despMap.get(mes) ?? [],
     folha: folhaMap.get(mes) ?? 0,
     juros: jurosMap.get(mes) ?? 0,
-    impostosEstimados: IMPOSTO_INDISPONIVEL,
+    impostosEstimados: impostos.get(mes)!.total,
+    impostoFixo: impostos.get(mes)!.regime === "mei",
     entradasCaixa: entradas[0]?.total ?? 0,
     saidasCaixa: (saidas[0]?.total ?? 0) + (saidaFolha[0]?.total ?? 0) + (saidaParcelas[0]?.total ?? 0),
   });
@@ -244,5 +254,6 @@ export async function carregarPainel(
     grafico,
     vencimentos,
     dividas: resumoDividas[0] ?? { saldo: 0, venceNoMes: 0, quantidade: 0 },
+    imposto: impostos.get(mes)!,
   };
 }

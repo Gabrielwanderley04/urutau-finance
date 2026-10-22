@@ -18,8 +18,10 @@ export interface EntradaResumo {
   folha?: Centavos;
   /** Juros das parcelas de dívidas que vencem no mês. Despesa fixa. A amortização não entra. */
   juros?: Centavos;
-  /** Imposto estimado do mês; null enquanto o cálculo não estiver disponível. */
+  /** Imposto estimado do mês; null quando o cálculo não está disponível (ex.: Lucro Real). */
   impostosEstimados: Centavos | null;
+  /** true quando o imposto não depende das vendas (DAS fixo do MEI): conta como custo fixo. */
+  impostoFixo?: boolean;
   /** Vendas efetivamente recebidas no mês (pela data de recebimento). */
   entradasCaixa: Centavos;
   /**
@@ -83,7 +85,9 @@ export function resumirMes(e: EntradaResumo): ResumoMes {
       saidas: e.saidasCaixa,
       saldo: e.entradasCaixa - e.saidasCaixa,
     },
-    pontoEquilibrio: calcularPontoEquilibrio(e.faturamento, fixas, variaveis + impostos),
+    pontoEquilibrio: e.impostoFixo
+      ? calcularPontoEquilibrio(e.faturamento, fixas + impostos, variaveis)
+      : calcularPontoEquilibrio(e.faturamento, fixas, variaveis + impostos),
   };
 }
 

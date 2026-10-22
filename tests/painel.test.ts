@@ -113,3 +113,15 @@ describe("folha e juros no resumo", () => {
     expect(r.lucro).toBe(3_040_000);
   });
 });
+
+describe("imposto fixo (MEI)", () => {
+  it("DAS fixo entra no ponto de equilíbrio como custo fixo", () => {
+    const base = { faturamento: 1_000_000, despesas: [{ valor: 400_000, comportamento: "variavel" as const, entraNoLucro: true }], entradasCaixa: 0, saidasCaixa: 0 };
+    const mei = resumirMes({ ...base, impostosEstimados: 8_705, impostoFixo: true });
+    // fixos 87,05 ÷ contribuição 60% = 145,08…
+    expect(mei.pontoEquilibrio).toMatchObject({ tipo: "valor", valor: 14_509 });
+    const variavel = resumirMes({ ...base, impostosEstimados: 8_705 });
+    expect(variavel.pontoEquilibrio).toMatchObject({ tipo: "valor", valor: 0 });
+    expect(mei.lucro).toBe(variavel.lucro);
+  });
+});

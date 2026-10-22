@@ -16,15 +16,16 @@ export default async function Mais({ params }: { params: Promise<{ empresaId: st
       ? [
           { href: `${base}/funcionarios`, titulo: "Funcionários", desc: "Quanto cada um custa de verdade" },
           { href: `${base}/dividas`, titulo: "Dívidas", desc: "Empréstimos, parcelas e juros" },
+          { href: `${base}/impostos`, titulo: "Impostos", desc: "Estimativa explicada passo a passo" },
         ]
       : []),
-    { titulo: "Impostos", desc: "Estimativa explicada passo a passo", fase: 3 },
     { titulo: "Relatórios", desc: "Exportar o mês para o contador", fase: 4 },
     ...(gerencia
       ? [
           { href: `${base}/ajustes`, titulo: "Dados da empresa", desc: "Nome, CNPJ, regime tributário" },
           { href: `${base}/ajustes/categorias`, titulo: "Categorias de despesa", desc: "Nomes, fixas e variáveis" },
           { href: `${base}/ajustes/fontes`, titulo: "Fontes de receita", desc: "Loja, site, delivery…" },
+          { href: `${base}/ajustes/historico`, titulo: "Faturamento anterior", desc: "Meses antes do urutau, para o cálculo do imposto" },
           { href: `${base}/ajustes/usuarios`, titulo: "Pessoas com acesso", desc: "Colaboradores e contador" },
         ]
       : []),

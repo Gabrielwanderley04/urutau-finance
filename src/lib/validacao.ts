@@ -127,6 +127,7 @@ export const esquemaEmpresa = z
     sujeitoFatorR: z.string().optional(),
     aliquotaIss: percentualOpcional,
     aliquotaIcms: percentualOpcional,
+    inicioAtividade: dataOpcional,
   })
   .transform((v, ctx) => {
     const temComercio = v.atividade !== "servicos";
@@ -152,6 +153,7 @@ export const esquemaEmpresa = z
       sujeitoFatorR,
       aliquotaIssPcm: temServicos ? v.aliquotaIss : null,
       aliquotaIcmsPcm: temComercio ? v.aliquotaIcms : null,
+      inicioAtividade: v.inicioAtividade ?? null,
     };
   });
 

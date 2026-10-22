@@ -24,10 +24,12 @@ import {
   folhaMensal,
   funcionarios,
   parcelasDivida,
+  receitasHistoricas,
   type ChaveCategoria,
 } from "../src/db/schema";
 import { gerarCronograma } from "../src/lib/calculos/dividas";
-import { type Data, diasNoMes, hoje, mesAtual, somarDias, somarMeses, ultimosMeses } from "../src/lib/datas";
+import { type Data, diasNoMes, hoje, mesAtual, mesDe, somarDias, somarMeses, ultimosMeses } from "../src/lib/datas";
+import { impostoDoMes } from "../src/lib/servidor/fiscal";
 import { sincronizarFolha } from "../src/lib/servidor/folha";
 
 const url = process.argv[2] ?? process.env.DATABASE_URL!;
@@ -214,19 +216,19 @@ const padariaId = await db.transaction(async (tx) => {
   for (let i = 0; i < listaDespesas.length; i += 500) await tx.insert(despesas).values(listaDespesas.slice(i, i + 500));
   console.log(`Padaria e Café Urutau: ${listaVendas.length} vendas, ${listaDespesas.length} despesas.`);
 
-  // ── Segunda empresa (MEI) para demonstrar o multiempresa ──────────────────
+  // ── Segunda empresa (MEI): perto do limite anual, para mostrar o alerta ─────
   const [mei] = await tx
     .insert(empresas)
-    .values({ nome: "Marina Doces (MEI)", atividade: "comercio", cidade: "Belo Horizonte", uf: "MG", regime: "mei" })
+    .values({ nome: "Marina Doces (MEI)", atividade: "comercio", cidade: "Belo Horizonte", uf: "MG", regime: "mei", inicioAtividade: "2022-05-02" })
     .returning();
   await tx.insert(empresaUsuarios).values({ empresaId: mei.id, usuarioId: dono.id, papel: "dono" });
   await criarPadroesDaEmpresa(tx, mei.id, "comercio");
-  const [lojaMei] = await tx.select().from(fontesReceita).where(eq(fontesReceita.empresaId, mei.id)).limit(1);
-  const vendasMei: NovaVenda[] = ultimosMeses(mesHoje, 6).flatMap((mes) =>
+  const [lojaMei] = await tx.select().from(fontesReceita).where(eq(fontesReceita.empresaId, mei.id)).orderBy(fontesReceita.ordem).limit(1);
+  const vendasMei: NovaVenda[] = ultimosMeses(mesHoje, 13).flatMap((mes) =>
     [6, 13, 20, 27]
       .map((dia) => `${mes}-${String(dia).padStart(2, "0")}`)
       .filter((data) => data <= hojeData)
-      .map((data) => ({ empresaId: mei.id, data, valorCentavos: entre(reais(1200), reais(1900)), descricao: "Bolos e doces da semana", fonteReceitaId: lojaMei.id, formaPagamento: "pix" as const, status: "recebido" as const, dataRecebimento: data, criadoPor: dono.id })),
+      .map((data) => ({ empresaId: mei.id, data, valorCentavos: entre(reais(1500), reais(2100)), descricao: "Bolos e doces da semana", fonteReceitaId: lojaMei.id, formaPagamento: "pix" as const, status: "recebido" as const, dataRecebimento: data, criadoPor: dono.id })),
   );
   await tx.insert(vendas).values(vendasMei);
   console.log(`Marina Doces (MEI): ${vendasMei.length} vendas.`);
@@ -270,6 +272,139 @@ for (const c of contratos) {
   );
 }
 console.log(`Dívidas: ${contratos.length} contratos com parcelas.`);
+
+// ── Histórico anterior da padaria: os 12 meses antes dos lançamentos ───────
+// Sem isso, o RBT12 dos primeiros meses do gráfico sairia baixo demais.
+const historico = ultimosMeses(somarMeses(mesHoje, -13), 12).map((competencia) => ({
+  empresaId: padariaId,
+  competencia,
+  receitaCentavos: entre(reais(44000), reais(52000)),
+  folhaCentavos: entre(reais(8000), reais(8600)),
+}));
+await db.insert(receitasHistoricas).values(historico);
+
+// O DAS pago em cada mês é o imposto estimado do mês anterior, calculado pelo próprio sistema.
+const das = await db
+  .select({ id: despesas.id, data: despesas.data })
+  .from(despesas)
+  .innerJoin(categoriasDespesa, eq(categoriasDespesa.id, despesas.categoriaId))
+  .where(and(eq(despesas.empresaId, padariaId), eq(categoriasDespesa.chaveSistema, "impostos")));
+for (const d of das) {
+  const { imposto } = await impostoDoMes(db, padaria, somarMeses(mesDe(d.data), -1));
+  if (imposto.total) await db.update(despesas).set({ valorCentavos: imposto.total }).where(eq(despesas.id, d.id));
+}
+console.log(`Padaria: ${historico.length} meses de histórico; ${das.length} guias de DAS ajustadas ao imposto estimado.`);
+
+// ── Empresas extras da Fase 3: Fator R (Anexo V) e Lucro Presumido ─────────
+interface Extra {
+  empresa: typeof empresas.$inferInsert;
+  fontes: { nome: string; natureza: "comercio" | "servico"; mensal: [number, number]; lancamentos: number }[];
+  despesasFixas: [ChaveCategoria, string, number][];
+  mercadorias?: number; // % da receita de comércio
+  proLabore: number;
+  funcionarios: Omit<typeof funcionarios.$inferInsert, "empresaId" | "folhaDesde">[];
+  crescimento: number; // % ao mês
+}
+
+async function criarExtra(x: Extra) {
+  const [e] = await db.insert(empresas).values(x.empresa).returning();
+  await db.insert(empresaUsuarios).values([
+    { empresaId: e.id, usuarioId: dono.id, papel: "dono" },
+    { empresaId: e.id, usuarioId: contador.id, papel: "contador" },
+  ]);
+  await db.transaction((tx) => criarPadroesDaEmpresa(tx, e.id, e.atividade));
+  await db.delete(fontesReceita).where(eq(fontesReceita.empresaId, e.id));
+  const fontes = await db
+    .insert(fontesReceita)
+    .values(x.fontes.map((f, i) => ({ empresaId: e.id, nome: f.nome, natureza: f.natureza, ordem: i })))
+    .returning();
+  const cats = await db.select().from(categoriasDespesa).where(eq(categoriasDespesa.empresaId, e.id));
+  const cat = (c: ChaveCategoria) => cats.find((k) => k.chaveSistema === c)!.id;
+  const inicio = mesDe(x.empresa.inicioAtividade!);
+  const meses = ultimosMeses(mesHoje, 13).filter((m) => m >= inicio);
+  const novasVendas: (typeof vendas.$inferInsert)[] = [];
+  const novasDespesas: (typeof despesas.$inferInsert)[] = [];
+  const pago = (v: Data) => (v <= hojeData ? { status: "pago" as const, pagoEm: v } : { status: "a_pagar" as const, pagoEm: null });
+
+  meses.forEach((mes, k) => {
+    const fator = (1 + x.crescimento / 100) ** k;
+    const ultimoDia = mes === mesHoje ? Number(hojeData.slice(8)) : diasNoMes(mes);
+    let comercio = 0;
+    x.fontes.forEach((f, i) => {
+      for (let j = 0; j < f.lancamentos; j++) {
+        const dia = Math.min(ultimoDia, 3 + Math.floor(((j + 0.5) * 26) / f.lancamentos));
+        const data = `${mes}-${String(dia).padStart(2, "0")}`;
+        const valor = Math.round((entre(reais(f.mensal[0]), reais(f.mensal[1])) / f.lancamentos) * fator);
+        if (f.natureza === "comercio") comercio += valor;
+        const receber = somarDias(data, 15);
+        novasVendas.push({
+          empresaId: e.id, data, valorCentavos: valor, descricao: `${f.nome} · ${j + 1}`, fonteReceitaId: fontes[i].id,
+          formaPagamento: f.natureza === "servico" ? "boleto" : "pix",
+          status: receber <= hojeData ? "recebido" : "a_receber", dataRecebimento: receber, criadoPor: dono.id,
+        });
+      }
+    });
+    const d = (dia: number) => `${mes}-${String(Math.min(dia, diasNoMes(mes))).padStart(2, "0")}`;
+    for (const [chave, descricao, valor] of x.despesasFixas)
+      novasDespesas.push({ empresaId: e.id, data: d(1), valorCentavos: reais(valor), descricao, categoriaId: cat(chave), vencimento: d(10), ...pago(d(10)), criadoPor: dono.id });
+    novasDespesas.push({ empresaId: e.id, data: d(1), valorCentavos: reais(x.proLabore), descricao: "Pró-labore", categoriaId: cat("pro_labore"), vencimento: d(5), ...pago(d(5)), criadoPor: dono.id });
+    if (x.mercadorias && comercio)
+      novasDespesas.push({ empresaId: e.id, data: d(8), valorCentavos: Math.round((comercio * x.mercadorias) / 100), descricao: "Compra de peças", categoriaId: cat("mercadorias"), vencimento: d(15), ...pago(d(15)), criadoPor: dono.id });
+  });
+  await db.insert(vendas).values(novasVendas);
+  await db.insert(despesas).values(novasDespesas);
+  // Meses entre a abertura e o primeiro lançamento (até 2 anos): informados como histórico.
+  const anteriores: (typeof receitasHistoricas.$inferInsert)[] = [];
+  for (let m = inicio > somarMeses(mesHoje, -24) ? inicio : somarMeses(mesHoje, -24); m < meses[0]; m = somarMeses(m, 1))
+    anteriores.push({ empresaId: e.id, competencia: m, receitaCentavos: x.fontes.reduce((t, f) => t + entre(reais(f.mensal[0]), reais(f.mensal[1])), 0) * 0.85, folhaCentavos: reais(x.proLabore) });
+  if (anteriores.length) await db.insert(receitasHistoricas).values(anteriores.map((a) => ({ ...a, receitaCentavos: Math.round(a.receitaCentavos!) })));
+  if (x.funcionarios.length) {
+    await db.insert(funcionarios).values(x.funcionarios.map((f) => ({ ...f, empresaId: e.id, folhaDesde: meses[0] })));
+    await sincronizarFolha(db, e, mesHoje, mesHoje);
+    const linhas = await db.select().from(folhaMensal).where(eq(folhaMensal.empresaId, e.id));
+    for (const l of linhas.filter((l) => l.vencimento <= hojeData))
+      await db.update(folhaMensal).set({ status: "pago", pagoEm: l.vencimento }).where(eq(folhaMensal.id, l.id));
+  }
+  // Guia de impostos do mês anterior, paga no dia 20 (só caixa).
+  for (const mes of meses.slice(1)) {
+    const { imposto } = await impostoDoMes(db, e, somarMeses(mes, -1));
+    if (imposto.total)
+      await db.insert(despesas).values({ empresaId: e.id, data: `${mes}-20`, valorCentavos: imposto.total, descricao: "Impostos do mês anterior", categoriaId: cat("impostos"), vencimento: `${mes}-20`, ...pago(`${mes}-20`), criadoPor: dono.id });
+  }
+  console.log(`${e.nome}: ${novasVendas.length} vendas, ${novasDespesas.length} despesas, ${x.funcionarios.length} funcionários.`);
+}
+
+// Estúdio de design no Anexo V com Fator R: só com pró-labore, a folha fica abaixo de 28%;
+// com a designer contratada há 7 meses, o Fator R sobe e a empresa passa para o Anexo III.
+await criarExtra({
+  empresa: { nome: "Estúdio Urutau Design", cnpj: "45723174000110", atividade: "servicos", cidade: "Recife", uf: "PE", regime: "simples", anexoServicos: "V", sujeitoFatorR: true, inicioAtividade: "2025-02-03" },
+  fontes: [
+    { nome: "Projetos de identidade visual", natureza: "servico", mensal: [18000, 24000], lancamentos: 3 },
+    { nome: "Gestão de redes (mensalidades)", natureza: "servico", mensal: [12000, 13000], lancamentos: 4 },
+  ],
+  despesasFixas: [["contas_fixas", "Coworking", 1200], ["contas_fixas", "Assinaturas de software", 450], ["marketing", "Portfólio e anúncios", 300]],
+  proLabore: 7000,
+  funcionarios: [{ nome: "Lia Barros", cargo: "Designer", salarioBrutoCentavos: reais(4800), admissao: `${somarMeses(mesHoje, -7)}-01`, vrCentavos: reais(400) }],
+  crescimento: 1,
+});
+
+// Manutenção no Lucro Presumido: serviços + venda de peças, com adicional do IRPJ e encargos patronais.
+await criarExtra({
+  empresa: { nome: "Urutau Manutenção Industrial", cnpj: "06990590000123", atividade: "ambos", cidade: "Contagem", uf: "MG", regime: "presumido", aliquotaIssPcm: 3_000, aliquotaIcmsPcm: 4_000, inicioAtividade: "2019-06-10" },
+  fontes: [
+    { nome: "Contratos de manutenção", natureza: "servico", mensal: [82000, 96000], lancamentos: 5 },
+    { nome: "Venda de peças", natureza: "comercio", mensal: [35000, 45000], lancamentos: 6 },
+  ],
+  despesasFixas: [["contas_fixas", "Aluguel do galpão", 6500], ["contas_fixas", "Energia e água", 1900], ["contas_fixas", "Contabilidade", 1800], ["juros_tarifas", "Tarifas bancárias", 180]],
+  mercadorias: 62,
+  proLabore: 9000,
+  funcionarios: [
+    { nome: "Marcos Dias", cargo: "Técnico eletromecânico", salarioBrutoCentavos: reais(4200), admissao: "2021-03-01", vtCentavos: reais(160), vrCentavos: reais(500), planoSaudeCentavos: reais(320) },
+    { nome: "Paula Reis", cargo: "Técnica de manutenção", salarioBrutoCentavos: reais(3900), admissao: "2022-08-15", vtCentavos: reais(160), vrCentavos: reais(500), planoSaudeCentavos: reais(320) },
+    { nome: "André Melo", cargo: "Auxiliar administrativo", salarioBrutoCentavos: reais(2300), admissao: "2023-01-09", vtCentavos: reais(180), vrCentavos: reais(500) },
+  ],
+  crescimento: 0.5,
+});
 
 await cliente.end();
 console.log("\nPronto! Entre com dono@urutau.dev / urutau123 (também colaborador@ e contador@).");

@@ -4,7 +4,8 @@ import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { obterDb } from "@/db";
-import { categoriasDespesa, despesas, empresaUsuarios, fontesReceita, usuarios, vendas } from "@/db/schema";
+import { categoriasDespesa, despesas, empresaUsuarios, fontesReceita, receitasHistoricas, usuarios, vendas } from "@/db/schema";
+import { lerReais } from "@/lib/dinheiro";
 import type { EstadoForm } from "@/lib/estado-form";
 import { errosPorCampo, esquemaCategoria, esquemaFonte, formParaObjeto } from "@/lib/validacao";
 import { exigirPermissao } from "./acesso";
@@ -152,4 +153,44 @@ export async function removerMembro(empresaId: string, usuarioId: string): Promi
     .delete(empresaUsuarios)
     .where(and(eq(empresaUsuarios.empresaId, empresaId), eq(empresaUsuarios.usuarioId, usuarioId)));
   revalidar(empresaId);
+}
+
+// ─── Histórico de faturamento e folha (meses antes do urutau) ────────────────
+
+export async function salvarHistorico(empresaId: string, meses: string[], _: EstadoForm, fd: FormData): Promise<EstadoForm> {
+  await exigirPermissao(empresaId, "gerenciar");
+  const erros: Record<string, string> = {};
+  const linhas: { competencia: string; receitaCentavos: number | null; folhaCentavos: number | null }[] = [];
+  for (const mes of meses) {
+    if (!/^\d{4}-\d{2}$/.test(mes)) continue;
+    const ler = (campo: string) => {
+      const bruto = String(fd.get(`${campo}_${mes}`) ?? "").trim();
+      if (!bruto) return null;
+      const c = lerReais(bruto);
+      if (c === null || c < 0) erros[`${campo}_${mes}`] = "Valor inválido";
+      return c;
+    };
+    linhas.push({ competencia: mes, receitaCentavos: ler("receita"), folhaCentavos: ler("folha") });
+  }
+  if (Object.keys(erros).length) return { erros, valores: formParaObjeto(fd) };
+
+  const db = obterDb();
+  await db.transaction(async (tx) => {
+    for (const l of linhas) {
+      const onde = and(eq(receitasHistoricas.empresaId, empresaId), eq(receitasHistoricas.competencia, l.competencia));
+      if (l.receitaCentavos === null && l.folhaCentavos === null) {
+        await tx.delete(receitasHistoricas).where(onde);
+      } else {
+        await tx
+          .insert(receitasHistoricas)
+          .values({ empresaId, ...l })
+          .onConflictDoUpdate({
+            target: [receitasHistoricas.empresaId, receitasHistoricas.competencia],
+            set: { receitaCentavos: l.receitaCentavos, folhaCentavos: l.folhaCentavos },
+          });
+      }
+    }
+  });
+  revalidar(empresaId);
+  return { ok: "Histórico salvo. Os impostos já foram recalculados." };
 }

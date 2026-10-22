@@ -116,7 +116,7 @@ describe("painel com folha e dívidas", () => {
   });
 
   it("lucro desconta custo da folha (com provisões) e só os juros da parcela", async () => {
-    const p = await carregarPainel(db, e.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, e, "2026-10", "2026-10-22");
     const custo = calcularCustoFuncionario(200_000, SEM_BENEFICIOS, "nenhum", ALIQ);
     expect(p.resumo.folha).toBe(custo.total);
     expect(p.resumo.juros).toBe(crono.parcelas[1].juros); // parcela 2 vence em 10/10
@@ -125,22 +125,22 @@ describe("painel com folha e dívidas", () => {
   });
 
   it("caixa inclui a parcela inteira (juros + amortização) e a folha paga sem provisões", async () => {
-    const p = await carregarPainel(db, e.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, e, "2026-10", "2026-10-22");
     const custo = calcularCustoFuncionario(200_000, SEM_BENEFICIOS, "nenhum", ALIQ);
     expect(p.resumo.caixa.saidas).toBe(crono.parcelas[1].valor + custo.caixa);
   });
 
   it("saldo devedor no fim do mês e quanto vence no mês", async () => {
-    const out = await carregarPainel(db, e.id, "2026-10", "2026-10-22");
+    const out = await carregarPainel(db, e, "2026-10", "2026-10-22");
     expect(out.dividas.saldo).toBe(crono.parcelas[1].saldoApos);
     expect(out.dividas.venceNoMes).toBe(crono.parcelas[1].valor);
     // Em setembro (antes de pagar a 2ª), o saldo era o da 1ª parcela
-    const set = await carregarPainel(db, e.id, "2026-09", "2026-09-30");
+    const set = await carregarPainel(db, e, "2026-09", "2026-09-30");
     expect(set.dividas.saldo).toBe(crono.parcelas[0].saldoApos);
   });
 
   it("vencimentos trazem a parcela e a folha a pagar", async () => {
-    const p = await carregarPainel(db, e.id, "2026-11", "2026-11-03");
+    const p = await carregarPainel(db, e, "2026-11", "2026-11-03");
     const descricoes = p.vencimentos.map((v) => v.descricao);
     expect(descricoes).toContain("Folha de pagamento de outubro de 2026");
     expect(p.vencimentos.find((v) => v.link.startsWith("dividas/"))).toMatchObject({ valor: crono.parcelas[2].valor, data: "2026-11-10" });
@@ -155,7 +155,7 @@ describe("painel com folha e dívidas", () => {
 
   it("dívida excluída some do painel", async () => {
     await db.update(dividas).set({ excluidoEm: new Date() }).where(eq(dividas.empresaId, e.id));
-    const p = await carregarPainel(db, e.id, "2026-10", "2026-10-22");
+    const p = await carregarPainel(db, e, "2026-10", "2026-10-22");
     expect(p.resumo.juros).toBe(0);
     expect(p.dividas.saldo).toBe(0);
   });

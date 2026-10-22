@@ -22,6 +22,27 @@
       "when": 1792711275343,
       "tag": "0002_fase2_parametros_iniciais",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792712404264,
+      "tag": "0003_fase3_simples_faixas",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792712405095,
+      "tag": "0004_fase3_tabelas_fiscais",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792712641837,
+      "tag": "0005_fase3_historico_opcional",
+      "breakpoints": true
     }
   ]
 }

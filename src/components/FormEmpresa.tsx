@@ -71,6 +71,11 @@ export function FormEmpresa({
         </Campo>
       </div>
 
+      <Campo rotulo="Início das atividades" nome="inicioAtividade" erro={e.inicioAtividade}
+        dica="Data de abertura do CNPJ. Usada no cálculo do imposto de empresas com menos de 12 meses.">
+        <input id="inicioAtividade" name="inicioAtividade" type="date" className="campo" defaultValue={inicial("inicioAtividade", empresa?.inicioAtividade ?? "")} />
+      </Campo>
+
       <fieldset>
         <legend className="rotulo">Regime tributário</legend>
         <div className="space-y-2">
