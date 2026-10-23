@@ -6,8 +6,8 @@ import { obterDb } from "@/db";
 import { mesAtual, mesDe, mesValido, nomeDoMes } from "@/lib/datas";
 import { pode } from "@/lib/permissoes";
 import { exigirAcesso } from "@/lib/servidor/acesso";
+import { prepararEmpresa } from "@/lib/servidor/automaticos";
 import { impostoDoMes } from "@/lib/servidor/fiscal";
-import { sincronizarFolha } from "@/lib/servidor/folha";
 
 export const metadata = { title: "Impostos" };
 
@@ -26,7 +26,7 @@ export default async function Impostos({
   const atual = mesAtual();
   const mes = mesValido(sp.mes) ? sp.mes : atual;
   const db = obterDb();
-  await sincronizarFolha(db, empresa, mes, atual);
+  await prepararEmpresa(db, empresa, mes, atual);
   const { imposto, series } = await impostoDoMes(db, empresa, mes);
   const base = `/e/${empresaId}`;
 

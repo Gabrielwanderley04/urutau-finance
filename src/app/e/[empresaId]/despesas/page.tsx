@@ -6,12 +6,13 @@ import { formatarDataCurta, hoje, mesAtual, mesValido, nomeDoMes } from "@/lib/d
 import { formatarReais } from "@/lib/dinheiro";
 import { pode, podeAlterarLancamento } from "@/lib/permissoes";
 import { exigirAcesso } from "@/lib/servidor/acesso";
+import { prepararEmpresa } from "@/lib/servidor/automaticos";
 import { obterDb } from "@/db";
 import { pagarParcela } from "@/lib/servidor/acoes-dividas";
 import { pagarFolha } from "@/lib/servidor/acoes-funcionarios";
 import { marcarDespesaPaga } from "@/lib/servidor/acoes-lancamentos";
 import { parcelasDoMes } from "@/lib/servidor/dividas";
-import { folhaDoMes, sincronizarFolha } from "@/lib/servidor/folha";
+import { folhaDoMes } from "@/lib/servidor/folha";
 import { listarDespesasDoMes } from "@/lib/servidor/lancamentos";
 
 export const metadata = { title: "Despesas" };
@@ -34,7 +35,7 @@ export default async function Despesas({
   const veNumeros = pode(ctx.papel, "ver_painel");
   const gerencia = pode(ctx.papel, "gerenciar");
   const db = obterDb();
-  if (veNumeros) await sincronizarFolha(db, ctx.empresa, mes, atual);
+  await prepararEmpresa(db, ctx.empresa, mes, atual);
   const [folha, parcelas] = veNumeros ? await Promise.all([folhaDoMes(db, empresaId, mes), parcelasDoMes(db, empresaId, mes)]) : [[], []];
   const custoFolha = folha.reduce((s, f) => s + f.linha.custoTotal, 0);
   const folhaAPagar = folha.some((f) => f.linha.status === "a_pagar");
@@ -59,7 +60,10 @@ export default async function Despesas({
     <div className="space-y-4">
       <header className="flex items-center justify-between">
         <h1 className="font-titulo text-2xl font-bold">Despesas</h1>
-        {pode(ctx.papel, "lancar") && <Link href={`${base}/despesas/nova`} className="btn-principal !min-h-11">+ Nova despesa</Link>}
+        <div className="flex items-center gap-2">
+          {gerencia && <Link href={`${base}/despesas/recorrentes`} className="btn-secundario !min-h-11 !px-3 text-sm">↻ Recorrentes</Link>}
+          {pode(ctx.papel, "lancar") && <Link href={`${base}/despesas/nova`} className="btn-principal !min-h-11">+ Nova</Link>}
+        </div>
       </header>
       {sp.salvo && <p role="status" className="rounded-xl border border-positivo p-3 text-sm text-positivo">✓ Despesa salva.</p>}
       <SeletorMes mes={mes} base={`${base}/despesas`} mesAtual={atual} />
@@ -151,7 +155,12 @@ export default async function Despesas({
                 return (
                   <li key={d.id} className="flex items-center gap-3 px-4 py-3">
                     <Link href={`${base}/despesas/${d.id}`} className="min-w-0 flex-1">
-                      <span className="block truncate">{d.descricao || g.nome}</span>
+                      <span className="block truncate">
+                        {d.descricao || g.nome}
+                        {d.origem !== "manual" && (
+                          <span className="ml-1.5 rounded-full border border-borda px-1.5 text-[10px] text-suave">{d.origem === "recorrente" ? "↻ todo mês" : "guia"}</span>
+                        )}
+                      </span>
                       <span className={`block text-xs ${atrasada ? "font-bold text-negativo" : "text-suave"}`}>
                         {d.status === "pago"
                           ? `Pago em ${formatarDataCurta(d.pagoEm!)}`

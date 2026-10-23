@@ -257,3 +257,27 @@ export const esquemaDivida = z.object({
 });
 
 export const esquemaDividaDescricao = esquemaDivida.pick({ credor: true, tipo: true, observacao: true });
+
+export const esquemaRecorrente = z
+  .object({
+    descricao: texto(120).min(2, "Descreva a despesa (ex.: aluguel)"),
+    valor: valorEmReais,
+    categoriaId: uuid("Escolha uma categoria"),
+    diaVencimento: z.coerce.number({ message: "Informe o dia" }).int().min(1, "Dia entre 1 e 31").max(31, "Dia entre 1 e 31"),
+    inicio: mesCampo,
+    fim: z
+      .string()
+      .optional()
+      .transform((s) => (s ? s : null))
+      .refine((s) => s === null || /^\d{4}-(0[1-9]|1[0-2])$/.test(s), "Mês inválido"),
+  })
+  .superRefine((v, ctx) => {
+    if (v.fim && v.fim < v.inicio) ctx.addIssue({ code: "custom", path: ["fim"], message: "O fim não pode ser antes do início" });
+  });
+
+export const esquemaPagamentoProvisao = z.object({
+  tipo: z.enum(["decimo_terceiro", "ferias"], { message: "Escolha 13º ou férias" }),
+  pagoEm: data("Informe a data do pagamento"),
+  valor: valorEmReais,
+  descricao: texto(120).optional().transform((s) => s ?? ""),
+});

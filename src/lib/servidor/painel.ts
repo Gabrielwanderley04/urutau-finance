@@ -1,7 +1,7 @@
 import "server-only";
 import { type AnyColumn, and, asc, eq, gte, isNull, lt, lte, sql } from "drizzle-orm";
 import type { BancoDeDados } from "@/db";
-import { type Empresa, categoriasDespesa, despesas, dividas, folhaMensal, fontesReceita, parcelasDivida, vendas } from "@/db/schema";
+import { type Empresa, categoriasDespesa, despesas, dividas, folhaMensal, fontesReceita, pagamentosProvisao, parcelasDivida, vendas } from "@/db/schema";
 import {
   type DespesaAgregada,
   type FonteParticipacao,
@@ -70,7 +70,7 @@ export async function carregarPainel(
 
   const [
     fatPorMes, despPorMes, entradas, saidas, porFonte, aPagar, aReceber,
-    folhaPorMes, jurosPorMes, saidaFolha, saidaParcelas, folhaAPagar, parcelasAPagar, resumoDividas,
+    folhaPorMes, jurosPorMes, saidaFolha, saidaParcelas, folhaAPagar, parcelasAPagar, resumoDividas, saidaProvisoes,
   ] = await Promise.all([
     db
       .select({ mes: mesSql(vendas.data), total: soma(vendas.valorCentavos) })
@@ -172,6 +172,11 @@ export async function carregarPainel(
       .from(parcelasDivida)
       .innerJoin(dividas, juntarDivida)
       .where(parcelasVivas),
+    // 13º e férias pagos: o custo já entrou no lucro pelas reservas, aqui só o caixa.
+    db
+      .select({ total: soma(pagamentosProvisao.valorCentavos) })
+      .from(pagamentosProvisao)
+      .where(and(eq(pagamentosProvisao.empresaId, empresaId), gte(pagamentosProvisao.pagoEm, inicio), lt(pagamentosProvisao.pagoEm, fim))),
   ]);
   const folhaMap = new Map(folhaPorMes.map((l) => [l.mes, l.total]));
   const jurosMap = new Map(jurosPorMes.map((l) => [l.mes, l.total]));
@@ -206,7 +211,7 @@ export async function carregarPainel(
     impostosEstimados: impostos.get(mes)!.total,
     impostoFixo: impostos.get(mes)!.regime === "mei",
     entradasCaixa: entradas[0]?.total ?? 0,
-    saidasCaixa: (saidas[0]?.total ?? 0) + (saidaFolha[0]?.total ?? 0) + (saidaParcelas[0]?.total ?? 0),
+    saidasCaixa: (saidas[0]?.total ?? 0) + (saidaFolha[0]?.total ?? 0) + (saidaParcelas[0]?.total ?? 0) + (saidaProvisoes[0]?.total ?? 0),
   });
 
   const vencimentos: ItemVencimento[] = [

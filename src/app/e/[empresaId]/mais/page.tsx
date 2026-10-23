@@ -14,15 +14,17 @@ export default async function Mais({ params }: { params: Promise<{ empresaId: st
   const itens: { href?: string; titulo: string; desc: string; fase?: number }[] = [
     ...(pode(papel, "ver_painel")
       ? [
+          { href: `${base}/contas`, titulo: "Contas a pagar e receber", desc: "Agenda de vencimentos e atrasos" },
+          { href: `${base}/relatorios`, titulo: "Relatórios", desc: "Exportar o mês em CSV e PDF para o contador" },
           { href: `${base}/funcionarios`, titulo: "Funcionários", desc: "Quanto cada um custa de verdade" },
           { href: `${base}/dividas`, titulo: "Dívidas", desc: "Empréstimos, parcelas e juros" },
           { href: `${base}/impostos`, titulo: "Impostos", desc: "Estimativa explicada passo a passo" },
         ]
       : []),
-    { titulo: "Relatórios", desc: "Exportar o mês para o contador", fase: 4 },
     ...(gerencia
       ? [
           { href: `${base}/ajustes`, titulo: "Dados da empresa", desc: "Nome, CNPJ, regime tributário" },
+          { href: `${base}/despesas/recorrentes`, titulo: "Despesas recorrentes", desc: "Aluguel, internet… gerados todo mês" },
           { href: `${base}/ajustes/categorias`, titulo: "Categorias de despesa", desc: "Nomes, fixas e variáveis" },
           { href: `${base}/ajustes/fontes`, titulo: "Fontes de receita", desc: "Loja, site, delivery…" },
           { href: `${base}/ajustes/historico`, titulo: "Faturamento anterior", desc: "Meses antes do urutau, para o cálculo do imposto" },

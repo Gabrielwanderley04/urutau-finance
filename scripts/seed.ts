@@ -25,12 +25,15 @@ import {
   funcionarios,
   parcelasDivida,
   receitasHistoricas,
+  despesasRecorrentes,
+  pagamentosProvisao,
   type ChaveCategoria,
 } from "../src/db/schema";
 import { gerarCronograma } from "../src/lib/calculos/dividas";
 import { type Data, diasNoMes, hoje, mesAtual, mesDe, somarDias, somarMeses, ultimosMeses } from "../src/lib/datas";
 import { impostoDoMes } from "../src/lib/servidor/fiscal";
 import { sincronizarFolha } from "../src/lib/servidor/folha";
+import { prepararEmpresa } from "../src/lib/servidor/automaticos";
 
 const url = process.argv[2] ?? process.env.DATABASE_URL!;
 const { db, cliente } = criarConexao(url);
@@ -69,6 +72,8 @@ const [dono, colaborador, contador] = await db
 
 const hojeData = hoje();
 const mesHoje = mesAtual();
+/** As empresas de exemplo "usam o urutau" há 13 meses. */
+const cadastradoEm = new Date(`${somarMeses(mesHoje, -13)}-01T12:00:00Z`);
 
 const padariaId = await db.transaction(async (tx) => {
   // ── Empresa principal ──────────────────────────────────────────────────────
@@ -84,6 +89,7 @@ const padariaId = await db.transaction(async (tx) => {
       anexoComercio: "I",
       anexoServicos: "III",
       inicioAtividade: "2023-03-01",
+      criadoEm: cadastradoEm,
     })
     .returning();
   await tx.insert(empresaUsuarios).values([
@@ -219,7 +225,7 @@ const padariaId = await db.transaction(async (tx) => {
   // ── Segunda empresa (MEI): perto do limite anual, para mostrar o alerta ─────
   const [mei] = await tx
     .insert(empresas)
-    .values({ nome: "Marina Doces (MEI)", atividade: "comercio", cidade: "Belo Horizonte", uf: "MG", regime: "mei", inicioAtividade: "2022-05-02" })
+    .values({ nome: "Marina Doces (MEI)", atividade: "comercio", cidade: "Belo Horizonte", uf: "MG", regime: "mei", inicioAtividade: "2022-05-02", criadoEm: cadastradoEm })
     .returning();
   await tx.insert(empresaUsuarios).values({ empresaId: mei.id, usuarioId: dono.id, papel: "dono" });
   await criarPadroesDaEmpresa(tx, mei.id, "comercio");
@@ -290,6 +296,11 @@ const das = await db
   .innerJoin(categoriasDespesa, eq(categoriasDespesa.id, despesas.categoriaId))
   .where(and(eq(despesas.empresaId, padariaId), eq(categoriasDespesa.chaveSistema, "impostos")));
 for (const d of das) {
+  if (d.data >= `${mesHoje}-01`) {
+    // A guia que vence neste mês é gerada pelo próprio sistema (Fase 4).
+    await db.delete(despesas).where(eq(despesas.id, d.id));
+    continue;
+  }
   const { imposto } = await impostoDoMes(db, padaria, somarMeses(mesDe(d.data), -1));
   if (imposto.total) await db.update(despesas).set({ valorCentavos: imposto.total }).where(eq(despesas.id, d.id));
 }
@@ -307,7 +318,7 @@ interface Extra {
 }
 
 async function criarExtra(x: Extra) {
-  const [e] = await db.insert(empresas).values(x.empresa).returning();
+  const [e] = await db.insert(empresas).values({ ...x.empresa, criadoEm: cadastradoEm }).returning();
   await db.insert(empresaUsuarios).values([
     { empresaId: e.id, usuarioId: dono.id, papel: "dono" },
     { empresaId: e.id, usuarioId: contador.id, papel: "contador" },
@@ -366,7 +377,7 @@ async function criarExtra(x: Extra) {
       await db.update(folhaMensal).set({ status: "pago", pagoEm: l.vencimento }).where(eq(folhaMensal.id, l.id));
   }
   // Guia de impostos do mês anterior, paga no dia 20 (só caixa).
-  for (const mes of meses.slice(1)) {
+  for (const mes of meses.slice(1).filter((m) => m < mesHoje)) {
     const { imposto } = await impostoDoMes(db, e, somarMeses(mes, -1));
     if (imposto.total)
       await db.insert(despesas).values({ empresaId: e.id, data: `${mes}-20`, valorCentavos: imposto.total, descricao: "Impostos do mês anterior", categoriaId: cat("impostos"), vencimento: `${mes}-20`, ...pago(`${mes}-20`), criadoPor: dono.id });
@@ -405,6 +416,41 @@ await criarExtra({
   ],
   crescimento: 0.5,
 });
+
+// ── Fase 4: recorrentes, guias geradas pelo sistema e férias pagas ─────────
+const catsPadaria = await db.select().from(categoriasDespesa).where(eq(categoriasDespesa.empresaId, padariaId));
+const catPadaria = (c: ChaveCategoria) => catsPadaria.find((k) => k.chaveSistema === c)!.id;
+// As contas fixas passam a ser recorrentes a partir do mês que vem (até aqui foram lançadas mês a mês).
+await db.insert(despesasRecorrentes).values(
+  [
+    ["Aluguel do ponto", 4800, 10],
+    ["Honorários do contador", 850, 10],
+    ["Internet e telefone", 189, 12],
+    ["Sistema de caixa (PDV)", 149, 5],
+    ["Tarifa do banco", 59, 3],
+  ].map(([descricao, valor, dia]) => ({
+    empresaId: padariaId,
+    descricao: descricao as string,
+    valorCentavos: reais(valor as number),
+    categoriaId: catPadaria(descricao === "Tarifa do banco" ? "juros_tarifas" : "contas_fixas"),
+    diaVencimento: dia as number,
+    inicio: somarMeses(mesHoje, 1),
+    criadoPor: dono.id,
+  })),
+);
+
+// Férias do padeiro, pagas há 3 meses.
+const [roberto] = await db.select().from(funcionarios).where(and(eq(funcionarios.empresaId, padariaId), eq(funcionarios.nome, "Roberto Alves")));
+await db.insert(pagamentosProvisao).values({ empresaId: padariaId, funcionarioId: roberto.id, tipo: "ferias", pagoEm: `${somarMeses(mesHoje, -3)}-01`, valorCentavos: reais(3466.67) + reais(277.33), descricao: "30 dias de férias" });
+
+// Gera o que o sistema gera sozinho; guias já vencidas ficam como pagas no vencimento.
+for (const e of await db.select().from(empresas)) {
+  await prepararEmpresa(db, e, mesHoje, mesHoje);
+  const guias = await db.select().from(despesas).where(and(eq(despesas.empresaId, e.id), eq(despesas.origem, "imposto")));
+  for (const g of guias.filter((g) => g.vencimento < hojeData))
+    await db.update(despesas).set({ status: "pago", pagoEm: g.vencimento }).where(eq(despesas.id, g.id));
+}
+console.log("Fase 4: despesas recorrentes, guias de impostos e férias registradas.");
 
 await cliente.end();
 console.log("\nPronto! Entre com dono@urutau.dev / urutau123 (também colaborador@ e contador@).");

@@ -73,6 +73,7 @@ export async function listarDespesasDoMes(ctx: Contexto, mes: Mes) {
       vencimento: despesas.vencimento,
       pagoEm: despesas.pagoEm,
       criadoPor: despesas.criadoPor,
+      origem: despesas.origem,
     })
     .from(despesas)
     .innerJoin(

@@ -8,7 +8,7 @@ import { obterDb } from "@/db";
 import { formatarDataCurta, hoje, mesAtual, mesValido, nomeDoMes } from "@/lib/datas";
 import { formatarPcm, formatarReais, razaoPcm } from "@/lib/dinheiro";
 import { exigirAcesso } from "@/lib/servidor/acesso";
-import { sincronizarFolha } from "@/lib/servidor/folha";
+import { prepararEmpresa } from "@/lib/servidor/automaticos";
 import { carregarPainel } from "@/lib/servidor/painel";
 
 export const metadata = { title: "Painel" };
@@ -54,16 +54,23 @@ export default async function Painel({
   const mes = mesValido(mesParam) ? mesParam : atual;
   const hojeData = hoje();
   const db = obterDb();
-  await sincronizarFolha(db, empresa, mes, atual);
+  await prepararEmpresa(db, empresa, mes, atual);
   const { resumo: r, fontes, grafico, vencimentos, dividas, imposto } = await carregarPainel(db, empresa, mes, hojeData);
   const base = `/e/${empresaId}`;
   const nome = nomeDoMes(mes);
+  const atrasadas = vencimentos.filter((v) => v.atrasado && v.tipo === "pagar");
   const totalPagar = vencimentos.filter((v) => v.tipo === "pagar").reduce((t, v) => t + v.valor, 0);
   const totalReceber = vencimentos.filter((v) => v.tipo === "receber").reduce((t, v) => t + v.valor, 0);
 
   return (
     <div className="space-y-4">
       <SeletorMes mes={mes} base={`${base}/painel`} mesAtual={atual} />
+
+      {atrasadas.length > 0 && (
+        <Link href={`${base}/contas`} className="block rounded-xl border border-negativo bg-negativo-fundo p-3 text-sm text-negativo">
+          ▼ <strong>{atrasadas.length} {atrasadas.length === 1 ? "conta atrasada" : "contas atrasadas"}</strong> somando {formatarReais(atrasadas.reduce((t, v) => t + v.valor, 0))}. Ver agenda ›
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Cartao
@@ -222,6 +229,7 @@ export default async function Painel({
         {vencimentos.length > LIMITE_VENCIMENTOS && (
           <p className="pt-2 text-sm text-suave">+ {vencimentos.length - LIMITE_VENCIMENTOS} outros lançamentos nos próximos dias</p>
         )}
+        <Link href={`${base}/contas`} className="mt-2 inline-block text-sm underline">Ver agenda completa (30 dias)</Link>
       </section>
     </div>
   );

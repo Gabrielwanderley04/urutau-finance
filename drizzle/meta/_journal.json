@@ -43,6 +43,13 @@
       "when": 1792712641837,
       "tag": "0005_fase3_historico_opcional",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792713782222,
+      "tag": "0006_fase4_recorrentes_provisoes",
+      "breakpoints": true
     }
   ]
 }

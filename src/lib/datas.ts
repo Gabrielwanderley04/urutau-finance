@@ -71,3 +71,34 @@ export function formatarDataCurta(data: Data): string {
   const [, m, d] = data.split("-");
   return `${d}/${m}`;
 }
+
+/** 0 = domingo … 6 = sábado. */
+export function diaDaSemana(data: Data): number {
+  const [a, m, d] = data.split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, d)).getUTCDay();
+}
+
+const fimDeSemana = (d: Data) => [0, 6].includes(diaDaSemana(d));
+
+/** Se cair no fim de semana, passa para a segunda-feira seguinte. (Feriados não são considerados.) */
+export function proximoDiaUtil(data: Data): Data {
+  let d = data;
+  while (fimDeSemana(d)) d = somarDias(d, 1);
+  return d;
+}
+
+/** Se cair no fim de semana, antecipa para a sexta-feira anterior. (Feriados não são considerados.) */
+export function diaUtilAnterior(data: Data): Data {
+  let d = data;
+  while (fimDeSemana(d)) d = somarDias(d, -1);
+  return d;
+}
+
+export function ultimoDiaUtil(mes: Mes): Data {
+  return diaUtilAnterior(`${mes}-${String(diasNoMes(mes)).padStart(2, "0")}`);
+}
+
+/** Dia do mês limitado ao último dia (dia 31 em fevereiro → 28/29). */
+export function diaNoMes(mes: Mes, dia: number): Data {
+  return `${mes}-${String(Math.min(dia, diasNoMes(mes))).padStart(2, "0")}`;
+}

@@ -69,6 +69,15 @@ npm run lint    # checagem de tipos
   - Tabelas em `simples_faixas` e `parametros_fiscais` (migração `0004`). Quando a CBS substituir PIS/Cofins,
     feche a vigência de `pis_cumulativo`/`cofins_cumulativo` e cadastre a nova regra.
   - `receitas_historicas`: faturamento e folha de meses anteriores ao urutau (tela "Faturamento anterior").
+- **Gerado automaticamente** (`src/lib/servidor/automaticos.ts`, chamado pelas telas antes de mostrar os números; idempotente):
+  - folha do mês; despesas recorrentes até o mês seguinte; guias de impostos dos meses fechados.
+  - Cada lançamento gerado tem uma `referencia` única (`recorrente:<id>:2026-10`, `imposto:das:2026-09`): nunca duplica,
+    nem volta depois que o dono exclui. Guias não são geradas se o dono já lançou a guia daquele mês à mão.
+  - Vencimentos: DAS dia 20 (fim de semana → próximo dia útil), PIS/Cofins dia 25 (→ dia útil anterior),
+    ISS/ICMS dia 10 (referência), IRPJ/CSLL no último dia útil do mês seguinte ao trimestre. Feriados não são considerados.
+- **13º e férias**: a reserva mensal já pesa no lucro; o pagamento (`pagamentos_provisao`) entra só no caixa.
+- **Relatórios** (`/e/<id>/relatorios`): PDF e CSVs (resumo, vendas, despesas, funcionários, dívidas, impostos) ou tudo num .zip.
+  CSV com `;`, vírgula decimal e BOM UTF-8, para abrir direto no Excel; fórmulas são neutralizadas (CSV injection).
 - **Preparado para estoque**: `empresas.tratamento_mercadorias` e `despesas.compra_id` já existem.
 
 ## Estrutura
@@ -78,11 +87,12 @@ src/
   app/                 telas (App Router)
     (publico)/         entrar, criar conta
     empresas/          escolher/criar empresa
-    e/[empresaId]/     painel, vendas, despesas, lançar, mais, ajustes
+    e/[empresaId]/     painel, vendas, despesas (e recorrentes), contas, funcionários, dívidas, impostos, relatórios, ajustes
   components/          UI compartilhada
   db/                  schema Drizzle, conexão, categorias e fontes padrão
   lib/
-    calculos/          cálculos puros: painel, folha, dívidas, parâmetros, Simples, MEI e Presumido
+    calculos/          cálculos puros: painel, folha, dívidas, parâmetros, Simples, MEI, Presumido, guias, recorrentes, 13º/férias
+    relatorios/        CSV e PDF
     servidor/          autenticação, acesso, consultas e server actions
 drizzle/               migrações SQL
 scripts/               migrate, reset, seed
@@ -94,4 +104,4 @@ tests/                 Vitest
 1. ✅ Fundação: login, empresa, categorias, vendas, despesas e painel básico
 2. ✅ Funcionários com custo real e dívidas com parcelas
 3. ✅ Impostos: MEI, Simples Nacional (com Fator R) e Lucro Presumido
-4. Relatórios, exportação, despesas recorrentes e alertas de vencimento
+4. ✅ Relatórios (PDF/CSV/ZIP), despesas recorrentes, guias de impostos como contas a pagar, agenda de vencimentos e 13º/férias

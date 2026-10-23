@@ -5,8 +5,11 @@ import { Cabecalho } from "@/components/Campos";
 import { ComposicaoCusto } from "@/components/ComposicaoCusto";
 import { FormFuncionario } from "@/components/FormFuncionario";
 import { obterDb } from "@/db";
-import { folhaMensal, funcionarios } from "@/db/schema";
-import { hoje, mesAtual, nomeDoMes } from "@/lib/datas";
+import { folhaMensal, funcionarios, pagamentosProvisao } from "@/db/schema";
+import { FormProvisao } from "@/components/FormProvisao";
+import { avos13, sugerirPagamento } from "@/lib/calculos/provisoes";
+import { excluirPagamentoProvisao, registrarPagamentoProvisao } from "@/lib/servidor/acoes-fase4";
+import { formatarData, hoje, mesAtual, nomeDoMes } from "@/lib/datas";
 import { centavosParaInput, formatarReais } from "@/lib/dinheiro";
 import { pode } from "@/lib/permissoes";
 import { exigirAcesso } from "@/lib/servidor/acesso";
@@ -43,6 +46,18 @@ export default async function Funcionario({
   const { aliquotas, encargos } = await contextoFolha(db, empresa, hoje());
   const gerencia = pode(papel, "gerenciar");
   const ultima = historico[0];
+  const ano = Number(atual.slice(0, 4));
+  const avos = avos13(ano, f.admissao, f.desligamento);
+  const [todasFolhas, pagamentos] = await Promise.all([
+    db.select({ competencia: folhaMensal.competencia, provisao13: folhaMensal.provisao13, provisaoFerias: folhaMensal.provisaoFerias })
+      .from(folhaMensal).where(and(eq(folhaMensal.funcionarioId, id), eq(folhaMensal.empresaId, empresaId))),
+    db.select().from(pagamentosProvisao).where(and(eq(pagamentosProvisao.funcionarioId, id), eq(pagamentosProvisao.empresaId, empresaId))).orderBy(desc(pagamentosProvisao.pagoEm)),
+  ]);
+  // Reservas sem FGTS e encargos (que têm a sua própria linha na folha); pagamentos com tudo o que saiu do caixa.
+  const reserva13 = todasFolhas.filter((h) => h.competencia.startsWith(String(ano))).reduce((t, h) => t + h.provisao13, 0);
+  const pago13 = pagamentos.filter((p) => p.tipo === "decimo_terceiro" && p.pagoEm.startsWith(String(ano))).reduce((t, p) => t + p.valorCentavos, 0);
+  const reservaFerias = todasFolhas.reduce((t, h) => t + h.provisaoFerias, 0);
+  const pagoFerias = pagamentos.filter((p) => p.tipo === "ferias").reduce((t, p) => t + p.valorCentavos, 0);
 
   return (
     <div className="space-y-5">
@@ -80,6 +95,52 @@ export default async function Funcionario({
           </ul>
         </section>
       )}
+
+      <section className="cartao space-y-3">
+        <h2 className="font-titulo text-lg font-bold">13º e férias</h2>
+        <p className="text-sm text-suave">
+          Todo mês o urutau reserva 1/12 do 13º e das férias no custo, então o lucro já considerou esse gasto. Quando pagar, registre aqui: o valor sai do caixa sem pesar no lucro de novo.
+        </p>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-suave">13º reservado em {ano}</dt>
+            <dd className="numero font-bold">{formatarReais(reserva13)}</dd>
+            <dd className="text-xs text-suave">pago: {formatarReais(pago13)}</dd>
+          </div>
+          <div>
+            <dt className="text-suave">Férias reservadas</dt>
+            <dd className="numero font-bold">{formatarReais(reservaFerias)}</dd>
+            <dd className="text-xs text-suave">pago: {formatarReais(pagoFerias)}</dd>
+          </div>
+        </dl>
+        {pagamentos.length > 0 && (
+          <ul className="divide-y divide-borda text-sm">
+            {pagamentos.map((pg) => (
+              <li key={pg.id} className="flex items-center justify-between gap-2 py-2">
+                <span>
+                  {pg.tipo === "ferias" ? "Férias" : "13º"} · {formatarData(pg.pagoEm)}
+                  {pg.descricao && <span className="block text-xs text-suave">{pg.descricao}</span>}
+                </span>
+                <span className="flex items-center gap-3">
+                  <span className="numero">{formatarReais(pg.valorCentavos)}</span>
+                  {gerencia && <BotaoAcao acao={excluirPagamentoProvisao.bind(null, empresaId, pg.id)} className="text-xs text-negativo underline" confirmar="Excluir este pagamento?">excluir</BotaoAcao>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {gerencia && (
+          <FormProvisao
+            acao={registrarPagamentoProvisao.bind(null, empresaId, id)}
+            hoje={hoje()}
+            avos={avos}
+            sugestoes={{
+              decimo_terceiro: sugerirPagamento("decimo_terceiro", f.salarioBrutoCentavos, avos, encargos, aliquotas),
+              ferias: sugerirPagamento("ferias", f.salarioBrutoCentavos, 0, encargos, aliquotas),
+            }}
+          />
+        )}
+      </section>
 
       <section>
         <h2 className="mb-3 font-titulo text-lg font-bold">{gerencia ? "Editar dados" : "Dados"}</h2>

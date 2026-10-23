@@ -60,7 +60,8 @@ export const chaveCategoriaEnum = pgEnum("chave_categoria", [
   "juros_tarifas",
   "outras",
 ]);
-export const origemDespesaEnum = pgEnum("origem_despesa", ["manual", "recorrente"]);
+export const origemDespesaEnum = pgEnum("origem_despesa", ["manual", "recorrente", "imposto"]);
+export const tipoProvisaoEnum = pgEnum("tipo_provisao", ["decimo_terceiro", "ferias"]);
 export const statusPagamentoEnum = pgEnum("status_pagamento", ["pago", "a_pagar"]);
 export const tipoDividaEnum = pgEnum("tipo_divida", [
   "emprestimo",
@@ -244,6 +245,39 @@ export const categoriasDespesa = pgTable(
   ],
 );
 
+/** Despesa cadastrada uma vez e gerada todo mês (ex.: aluguel todo dia 10). */
+export const despesasRecorrentes = pgTable(
+  "despesas_recorrentes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    descricao: text("descricao").notNull(),
+    valorCentavos: centavos("valor_centavos").notNull(),
+    categoriaId: uuid("categoria_id").notNull(),
+    diaVencimento: integer("dia_vencimento").notNull(),
+    /** Primeiro e último mês (AAAA-MM) em que a despesa é gerada; fim null = sem fim. */
+    inicio: text("inicio").notNull(),
+    fim: text("fim"),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("recorrentes_empresa_id_uq").on(t.empresaId, t.id),
+    foreignKey({
+      name: "recorrentes_categoria_fk",
+      columns: [t.empresaId, t.categoriaId],
+      foreignColumns: [categoriasDespesa.empresaId, categoriasDespesa.id],
+    }),
+    check("recorrentes_valor", sql`${t.valorCentavos} > 0`),
+    check("recorrentes_dia", sql`${t.diaVencimento} between 1 and 31`),
+    check("recorrentes_meses", sql`${t.inicio} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' and (${t.fim} is null or ${t.fim} >= ${t.inicio})`),
+  ],
+);
+
 export const despesas = pgTable(
   "despesas",
   {
@@ -260,8 +294,12 @@ export const despesas = pgTable(
     vencimento: date("vencimento").notNull(),
     pagoEm: date("pago_em"),
     origem: origemDespesaEnum("origem").notNull().default("manual"),
-    /** Preenchido pela Fase 4 (despesas recorrentes). */
     recorrenciaId: uuid("recorrencia_id"),
+    /**
+     * Chave dos lançamentos gerados pelo sistema ("recorrente:<id>:2026-10", "imposto:simples:2026-09"):
+     * impede gerar duas vezes, mesmo que o usuário exclua o lançamento.
+     */
+    referencia: text("referencia"),
     /** Reservado para o controle de estoque (compra de mercadoria → entrada no estoque). */
     compraId: uuid("compra_id"),
     criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
@@ -282,6 +320,12 @@ export const despesas = pgTable(
     ),
     index("despesas_empresa_data_idx").on(t.empresaId, t.data),
     index("despesas_empresa_venc_idx").on(t.empresaId, t.vencimento),
+    unique("despesas_referencia_uq").on(t.empresaId, t.referencia),
+    foreignKey({
+      name: "despesas_recorrencia_fk",
+      columns: [t.empresaId, t.recorrenciaId],
+      foreignColumns: [despesasRecorrentes.empresaId, despesasRecorrentes.id],
+    }),
   ],
 );
 
@@ -422,6 +466,35 @@ export const folhaMensal = pgTable(
     }).onDelete("cascade"),
     check("folha_pago_coerente", sql`(${t.status} = 'pago') = (${t.pagoEm} is not null)`),
     index("folha_empresa_comp_idx").on(t.empresaId, t.competencia),
+  ],
+);
+
+/**
+ * Pagamento de 13º ou férias. O custo já entrou no lucro mês a mês pelas reservas;
+ * aqui registramos só a saída do caixa.
+ */
+export const pagamentosProvisao = pgTable(
+  "pagamentos_provisao",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    funcionarioId: uuid("funcionario_id").notNull(),
+    tipo: tipoProvisaoEnum("tipo").notNull(),
+    pagoEm: date("pago_em").notNull(),
+    valorCentavos: centavos("valor_centavos").notNull(),
+    descricao: text("descricao").notNull().default(""),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    foreignKey({
+      name: "provisao_funcionario_fk",
+      columns: [t.empresaId, t.funcionarioId],
+      foreignColumns: [funcionarios.empresaId, funcionarios.id],
+    }).onDelete("cascade"),
+    check("provisao_valor", sql`${t.valorCentavos} > 0`),
+    index("provisao_empresa_data_idx").on(t.empresaId, t.pagoEm),
   ],
 );
 
