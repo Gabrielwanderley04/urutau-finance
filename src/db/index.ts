@@ -33,12 +33,22 @@ const globalParaDb = globalThis as unknown as { __urutauDb?: BancoDeDados };
 /**
  * Endereço do banco. Aceita os nomes criados pela integração Neon da Vercel
  * (DATABASE_URL) e pelo antigo Vercel Postgres (POSTGRES_URL).
+ * Migrações e site usam sempre o MESMO endereço: se existissem dois bancos configurados,
+ * as tabelas poderiam ser criadas num e o site ler do outro.
  */
-export function urlDoBanco(semPooler = false): string | undefined {
-  const e = process.env;
-  return semPooler
-    ? (e.DATABASE_URL_UNPOOLED ?? e.POSTGRES_URL_NON_POOLING ?? e.DATABASE_URL ?? e.POSTGRES_URL)
-    : (e.DATABASE_URL ?? e.POSTGRES_URL);
+export function urlDoBanco(): string | undefined {
+  return process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+}
+
+/** Só o servidor e o banco (sem usuário e senha), para mensagens de diagnóstico. */
+export function descreverBanco(url: string | undefined): string {
+  if (!url) return "nenhum";
+  try {
+    const u = new URL(normalizarUrl(url));
+    return `${u.hostname}${u.pathname}`;
+  } catch {
+    return "endereço inválido";
+  }
 }
 
 /** Conexão única por processo (o hot reload do Next recria módulos). */

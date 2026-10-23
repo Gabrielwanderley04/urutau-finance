@@ -1,9 +1,8 @@
 import "dotenv/config";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { criarConexao, urlDoBanco } from "../src/db";
+import { criarConexao, descreverBanco, urlDoBanco } from "../src/db";
 
-// Migrações preferem a conexão direta (sem pooler).
-const url = process.argv[2] ?? urlDoBanco(true);
+const url = process.argv[2] ?? urlDoBanco();
 if (!url) {
   console.error("\n✗ Nenhum banco de dados configurado: falta a variável DATABASE_URL.");
   if (process.env.VERCEL) {
@@ -17,4 +16,4 @@ if (!url) {
 const { db, cliente } = criarConexao(url);
 await migrate(db, { migrationsFolder: "./drizzle" });
 await cliente.end();
-console.log("Migrações aplicadas.");
+console.log(`Migrações aplicadas em ${descreverBanco(url)}.`);
