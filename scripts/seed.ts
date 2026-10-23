@@ -388,7 +388,7 @@ async function criarExtra(x: Extra) {
 // Estúdio de design no Anexo V com Fator R: só com pró-labore, a folha fica abaixo de 28%;
 // com a designer contratada há 7 meses, o Fator R sobe e a empresa passa para o Anexo III.
 await criarExtra({
-  empresa: { nome: "Estúdio Urutau Design", cnpj: "45723174000110", atividade: "servicos", cidade: "Recife", uf: "PE", regime: "simples", anexoServicos: "V", sujeitoFatorR: true, inicioAtividade: "2025-02-03" },
+  empresa: { nome: "Estúdio Urutau Design", atividade: "servicos", cidade: "Recife", uf: "PE", regime: "simples", anexoServicos: "V", sujeitoFatorR: true, inicioAtividade: "2025-02-03" },
   fontes: [
     { nome: "Projetos de identidade visual", natureza: "servico", mensal: [18000, 24000], lancamentos: 3 },
     { nome: "Gestão de redes (mensalidades)", natureza: "servico", mensal: [12000, 13000], lancamentos: 4 },
@@ -401,7 +401,7 @@ await criarExtra({
 
 // Manutenção no Lucro Presumido: serviços + venda de peças, com adicional do IRPJ e encargos patronais.
 await criarExtra({
-  empresa: { nome: "Urutau Manutenção Industrial", cnpj: "06990590000123", atividade: "ambos", cidade: "Contagem", uf: "MG", regime: "presumido", aliquotaIssPcm: 3_000, aliquotaIcmsPcm: 4_000, inicioAtividade: "2019-06-10" },
+  empresa: { nome: "Urutau Manutenção Industrial", atividade: "ambos", cidade: "Contagem", uf: "MG", regime: "presumido", aliquotaIssPcm: 3_000, aliquotaIcmsPcm: 4_000, inicioAtividade: "2019-06-10" },
   fontes: [
     { nome: "Contratos de manutenção", natureza: "servico", mensal: [82000, 96000], lancamentos: 5 },
     { nome: "Venda de peças", natureza: "comercio", mensal: [35000, 45000], lancamentos: 6 },
