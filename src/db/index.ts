@@ -20,6 +20,8 @@ export function criarConexao(url: string) {
     max: process.env.VERCEL ? 1 : 10,
     // Poolers como o do Neon (PgBouncer em modo transação) não aceitam prepared statements.
     prepare: false,
+    // Avisos do servidor como "schema já existe" não interessam ao usuário.
+    onnotice: () => {},
   });
   return { db: drizzle(cliente, { schema }), cliente };
 }
@@ -28,10 +30,21 @@ export type BancoDeDados = ReturnType<typeof criarConexao>["db"];
 
 const globalParaDb = globalThis as unknown as { __urutauDb?: BancoDeDados };
 
+/**
+ * Endereço do banco. Aceita os nomes criados pela integração Neon da Vercel
+ * (DATABASE_URL) e pelo antigo Vercel Postgres (POSTGRES_URL).
+ */
+export function urlDoBanco(semPooler = false): string | undefined {
+  const e = process.env;
+  return semPooler
+    ? (e.DATABASE_URL_UNPOOLED ?? e.POSTGRES_URL_NON_POOLING ?? e.DATABASE_URL ?? e.POSTGRES_URL)
+    : (e.DATABASE_URL ?? e.POSTGRES_URL);
+}
+
 /** Conexão única por processo (o hot reload do Next recria módulos). */
 export function obterDb(): BancoDeDados {
   if (!globalParaDb.__urutauDb) {
-    const url = process.env.DATABASE_URL;
+    const url = urlDoBanco();
     if (!url) throw new Error("DATABASE_URL não configurada");
     globalParaDb.__urutauDb = criarConexao(url).db;
   }
