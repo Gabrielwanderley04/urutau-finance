@@ -3,7 +3,12 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 export function criarConexao(url: string) {
-  const cliente = postgres(url, { max: 10 });
+  const cliente = postgres(url, {
+    // Em servidor sem estado (Vercel), cada instância abre poucas conexões.
+    max: process.env.VERCEL ? 1 : 10,
+    // Poolers como o do Neon (PgBouncer em modo transação) não aceitam prepared statements.
+    prepare: false,
+  });
   return { db: drizzle(cliente, { schema }), cliente };
 }
 

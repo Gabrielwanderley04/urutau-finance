@@ -9,12 +9,17 @@ const texto = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "700"], varia
 export const metadata: Metadata = {
   title: { default: "urutau gestão", template: "%s · urutau gestão" },
   description: "Gestão financeira simples para pequenas empresas",
+  applicationName: "urutau gestão",
+  appleWebApp: { capable: true, title: "urutau", statusBarStyle: "black" },
+  icons: { apple: "/icones/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#141B34",
+  // Usa a tela toda no iPhone; a barra inferior respeita a área segura (safe-area-inset).
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

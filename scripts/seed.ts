@@ -60,7 +60,8 @@ if (existente) {
   process.exit(0);
 }
 
-const senhaHash = await hash("urutau123");
+// Num site publicado, troque a senha das contas de exemplo: SEED_SENHA="..." npm run db:seed
+const senhaHash = await hash(process.env.SEED_SENHA || "urutau123");
 const [dono, colaborador, contador] = await db
   .insert(usuarios)
   .values([
@@ -453,4 +454,4 @@ for (const e of await db.select().from(empresas)) {
 console.log("Fase 4: despesas recorrentes, guias de impostos e férias registradas.");
 
 await cliente.end();
-console.log("\nPronto! Entre com dono@urutau.dev / urutau123 (também colaborador@ e contador@).");
+console.log(`\nPronto! Entre com dono@urutau.dev / ${process.env.SEED_SENHA ? "(a senha de SEED_SENHA)" : "urutau123"} (também colaborador@ e contador@).`);

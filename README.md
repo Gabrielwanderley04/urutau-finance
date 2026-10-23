@@ -27,6 +27,25 @@ Empresas de exemplo do `dono@`: **Padaria e Café Urutau** (Simples, Anexos I e 
 **Marina Doces** (MEI perto do limite anual), **Estúdio Urutau Design** (Simples Anexo V com Fator R, que passa
 para o Anexo III depois de contratar) e **Urutau Manutenção Industrial** (Lucro Presumido, com adicional do IRPJ e encargos).
 
+## Publicar (Vercel + Neon)
+
+1. **Banco**: crie um projeto em [neon.tech](https://neon.tech) e copie a *connection string*.
+2. **Site**: em [vercel.com](https://vercel.com), *Add New → Project* e importe este repositório.
+   Em *Environment Variables*, crie `DATABASE_URL` com a connection string do Neon
+   (se usar a integração Neon da Vercel, `DATABASE_URL` e `DATABASE_URL_UNPOOLED` são criadas sozinhas).
+3. *Deploy*. O build (`vercel-build`) aplica as migrações antes de compilar.
+4. **Contas**: crie a sua em `/criar-conta`. Para ter as empresas de exemplo no banco publicado, rode uma vez
+   no seu computador, **com uma senha nova** (as de exemplo ficariam públicas):
+
+   ```bash
+   DATABASE_URL="<connection string do Neon>" SEED_SENHA="uma-senha-forte" npm run db:seed
+   ```
+
+`npm run db:reset` recusa apagar um banco que não seja local.
+
+**No celular**: abra o link e use *Compartilhar → Adicionar à Tela de Início* (iPhone/Safari) ou
+*⋮ → Instalar app* (Android/Chrome). O urutau abre em tela cheia, com ícone próprio.
+
 ## Testes
 
 ```bash
