@@ -16,8 +16,9 @@ export function normalizarUrl(url: string): string {
 
 export function criarConexao(url: string) {
   const cliente = postgres(normalizarUrl(url), {
-    // Em servidor sem estado (Vercel), cada instância abre poucas conexões.
-    max: process.env.VERCEL ? 1 : 10,
+    // Na Vercel, poucas conexões por instância (o pooler do Neon aguenta), mas mais de uma:
+    // uma tela faz dezenas de consultas e, com uma conexão só, elas iriam em fila.
+    max: process.env.VERCEL ? 5 : 10,
     // Poolers como o do Neon (PgBouncer em modo transação) não aceitam prepared statements.
     prepare: false,
     // Avisos do servidor como "schema já existe" não interessam ao usuário.
