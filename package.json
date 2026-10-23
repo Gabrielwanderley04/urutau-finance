@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "iniciar": "tsx scripts/iniciar.ts",
     "build": "next build",
     "vercel-build": "npm run db:migrate && next build",
     "start": "next start",

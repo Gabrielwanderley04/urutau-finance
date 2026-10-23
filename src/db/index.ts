@@ -2,8 +2,20 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
+/**
+ * Ajusta a connection string copiada do painel do banco: o parâmetro channel_binding (que o Neon
+ * inclui) não é aceito pelo driver e seria repassado ao servidor como configuração desconhecida.
+ */
+export function normalizarUrl(url: string): string {
+  return url
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/([?&])channel_binding=[^&]*&?/, "$1")
+    .replace(/[?&]$/, "");
+}
+
 export function criarConexao(url: string) {
-  const cliente = postgres(url, {
+  const cliente = postgres(normalizarUrl(url), {
     // Em servidor sem estado (Vercel), cada instância abre poucas conexões.
     max: process.env.VERCEL ? 1 : 10,
     // Poolers como o do Neon (PgBouncer em modo transação) não aceitam prepared statements.

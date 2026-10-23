@@ -80,3 +80,13 @@ describe("formatação", () => {
     expect(centavosParaInput(123456)).toBe("1234,56");
   });
 });
+
+describe("connection string do banco", () => {
+  it("remove channel_binding (Neon) e aspas coladas junto", async () => {
+    const { normalizarUrl } = await import("@/db");
+    expect(normalizarUrl("postgresql://u:s@ep-x.neon.tech/neondb?sslmode=require&channel_binding=require")).toBe("postgresql://u:s@ep-x.neon.tech/neondb?sslmode=require");
+    expect(normalizarUrl("'postgresql://u:s@h/db?channel_binding=require&sslmode=require'")).toBe("postgresql://u:s@h/db?sslmode=require");
+    expect(normalizarUrl("postgresql://u:s@h/db?channel_binding=require")).toBe("postgresql://u:s@h/db");
+    expect(normalizarUrl("postgres://urutau:urutau@localhost:5432/urutau")).toBe("postgres://urutau:urutau@localhost:5432/urutau");
+  });
+});

@@ -6,12 +6,23 @@ quanto deve pagar de imposto no mês.
 
 ## Rodando localmente
 
-Pré-requisitos: Node 22+ e Postgres 16 (ou `docker compose up -d`).
+**Jeito mais fácil (sem Docker):** instale o [Node.js 22](https://nodejs.org), crie um banco grátis em
+[neon.tech](https://neon.tech) (botão *Connect* → copie a connection string) e, na pasta do projeto:
 
 ```bash
-cp .env.example .env      # ajuste DATABASE_URL e TEST_DATABASE_URL
 npm install
-npm run db:reset          # zera o banco, aplica migrações e cria a empresa de exemplo
+npm run iniciar     # pede a connection string, cria as tabelas e os dados de exemplo, e abre o site
+```
+
+Abra http://localhost:3000. Nas próximas vezes, `npm run iniciar` (ou `npm run dev`) já basta.
+
+**Com Docker (Postgres local):**
+
+```bash
+cp .env.example .env
+npm install
+docker compose up -d
+npm run db:reset          # zera o banco local, aplica migrações e cria a empresa de exemplo
 npm run dev               # http://localhost:3000
 ```
 
