@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Campo, Erro } from "@/components/Campos";
 import type { Empresa } from "@/db/schema";
 import { formatarPcm } from "@/lib/dinheiro";
+import { ORDEM_PERFIS, PERFIS } from "@/lib/perfis";
 import type { EstadoForm } from "@/lib/estado-form";
 import { UFS, formatarCnpj } from "@/lib/validacao";
 
@@ -20,10 +21,13 @@ export function FormEmpresa({
   acao,
   empresa,
   textoBotao,
+  comDono = false,
 }: {
   acao: (estado: EstadoForm, fd: FormData) => Promise<EstadoForm>;
   empresa?: Empresa;
   textoBotao: string;
+  /** Painel Urutau: pede também quem é o dono (cria a conta se não existir). */
+  comDono?: boolean;
 }) {
   const [estado, enviar, pendente] = useActionState(acao, {});
   const e = estado.erros ?? {};
@@ -40,6 +44,11 @@ export function FormEmpresa({
     <form action={enviar} className="space-y-5">
       <Campo rotulo="Nome da empresa" nome="nome" erro={e.nome}>
         <input id="nome" name="nome" className="campo" required defaultValue={inicial("nome", empresa?.nome ?? "")} />
+      </Campo>
+      <Campo rotulo="Tipo de negócio" nome="perfil" erro={e.perfil} dica="Define a primeira tela, o menu e o que o atendente do WhatsApp sabe fazer.">
+        <select id="perfil" name="perfil" className="campo" defaultValue={inicial("perfil", empresa?.perfil ?? "financas")}>
+          {ORDEM_PERFIS.map((p) => <option key={p} value={p}>{PERFIS[p].nome}</option>)}
+        </select>
       </Campo>
       <Campo rotulo="CNPJ (opcional)" nome="cnpj" erro={e.cnpj}>
         <input id="cnpj" name="cnpj" className="campo" inputMode="numeric" placeholder="00.000.000/0000-00"
@@ -140,6 +149,18 @@ export function FormEmpresa({
             </Campo>
           )}
         </div>
+      )}
+
+      {comDono && (
+        <fieldset className="cartao space-y-4">
+          <legend className="rotulo">Dono da empresa</legend>
+          <Campo rotulo="Nome" nome="pessoaNome" erro={e.pessoaNome}>
+            <input id="pessoaNome" name="pessoaNome" className="campo" required defaultValue={inicial("pessoaNome", "")} />
+          </Campo>
+          <Campo rotulo="E-mail de acesso" nome="pessoaEmail" erro={e.pessoaEmail} dica="Se ainda não tiver conta, criamos uma com senha provisória.">
+            <input id="pessoaEmail" name="pessoaEmail" type="email" className="campo" required defaultValue={inicial("pessoaEmail", "")} />
+          </Campo>
+        </fieldset>
       )}
 
       <Erro msg={e._} />

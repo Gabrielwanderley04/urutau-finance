@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx --conditions=react-server scripts/seed.ts",
-    "db:reset": "tsx scripts/reset.ts && npm run db:migrate && npm run db:seed"
+    "db:reset": "tsx scripts/reset.ts && npm run db:migrate && npm run db:seed",
+    "admin": "tsx scripts/superadmin.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",

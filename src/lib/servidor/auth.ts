@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import { hash, verify } from "@node-rs/argon2";
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
@@ -13,6 +13,12 @@ const DURACAO_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const hashSenha = (senha: string) => hash(senha);
 export const conferirSenha = (senhaHash: string, senha: string) => verify(senhaHash, senha);
+
+/** Senha provisória para o painel Urutau entregar ao cliente: sem letras que se confundem (0/O, 1/l). */
+export function gerarSenhaProvisoria(tamanho = 10) {
+  const alfabeto = "abcdefghjkmnpqrstuvwxyz23456789";
+  return Array.from({ length: tamanho }, () => alfabeto[randomInt(alfabeto.length)]).join("");
+}
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 

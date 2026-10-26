@@ -20,7 +20,7 @@ export async function criarEmpresa(_: EstadoForm, fd: FormData): Promise<EstadoF
   const id = await obterDb().transaction(async (tx) => {
     const [e] = await tx.insert(empresas).values(r.data).returning({ id: empresas.id });
     await tx.insert(empresaUsuarios).values({ empresaId: e.id, usuarioId: usuario.id, papel: "dono" });
-    await criarPadroesDaEmpresa(tx, e.id, r.data.atividade);
+    await criarPadroesDaEmpresa(tx, e.id, r.data.atividade, r.data.perfil);
     return e.id;
   });
   redirect(`/e/${id}/painel`);

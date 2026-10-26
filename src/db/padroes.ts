@@ -1,5 +1,6 @@
 import type { BancoDeDados } from "./index";
-import { categoriasDespesa, fontesReceita, type Atividade, type ChaveCategoria } from "./schema";
+import { PERFIS } from "@/lib/perfis";
+import { categoriasDespesa, fontesReceita, type Atividade, type ChaveCategoria, type Perfil } from "./schema";
 
 type Tx = Parameters<Parameters<BancoDeDados["transaction"]>[0]>[0];
 
@@ -33,7 +34,7 @@ export function fontesPadrao(atividade: Atividade) {
   return [...comercio, ...servicos];
 }
 
-export async function criarPadroesDaEmpresa(tx: Tx, empresaId: string, atividade: Atividade) {
+export async function criarPadroesDaEmpresa(tx: Tx, empresaId: string, atividade: Atividade, perfil: Perfil = "financas") {
   await tx.insert(categoriasDespesa).values(
     CATEGORIAS_PADRAO.map((c, i) => ({
       empresaId,
@@ -47,5 +48,5 @@ export async function criarPadroesDaEmpresa(tx: Tx, empresaId: string, atividade
   );
   await tx
     .insert(fontesReceita)
-    .values(fontesPadrao(atividade).map((f, i) => ({ empresaId, ...f, ordem: i })));
+    .values((PERFIS[perfil].fontes ?? fontesPadrao(atividade)).map((f, i) => ({ empresaId, ...f, ordem: i })));
 }

@@ -6,6 +6,10 @@
  *
  * Acessos (senha de todos: urutau123):
  *   dono@urutau.dev · colaborador@urutau.dev · contador@urutau.dev
+ *   admin@urutau.dev (equipe Urutau: vê o painel com todas as empresas)
+ *
+ * Fase 5: "Urutau Veículos", revenda de carros com clientes e vendas que chegaram
+ * pelo WhatsApp esperando conferência (scripts/seed-revenda.ts).
  */
 import "dotenv/config";
 import { and, eq } from "drizzle-orm";
@@ -34,6 +38,7 @@ import { type Data, diasNoMes, hoje, mesAtual, mesDe, somarDias, somarMeses, ult
 import { impostoDoMes } from "../src/lib/servidor/fiscal";
 import { sincronizarFolha } from "../src/lib/servidor/folha";
 import { prepararEmpresa } from "../src/lib/servidor/automaticos";
+import { semearRevenda } from "./seed-revenda";
 
 const url = process.argv[2] ?? process.env.DATABASE_URL!;
 const { db, cliente } = criarConexao(url);
@@ -313,12 +318,13 @@ interface Extra {
   fontes: { nome: string; natureza: "comercio" | "servico"; mensal: [number, number]; lancamentos: number }[];
   despesasFixas: [ChaveCategoria, string, number][];
   mercadorias?: number; // % da receita de comércio
+  descricaoMercadorias?: string;
   proLabore: number;
   funcionarios: Omit<typeof funcionarios.$inferInsert, "empresaId" | "folhaDesde">[];
   crescimento: number; // % ao mês
 }
 
-async function criarExtra(x: Extra) {
+async function criarExtra(x: Extra): Promise<typeof empresas.$inferSelect> {
   const [e] = await db.insert(empresas).values({ ...x.empresa, criadoEm: cadastradoEm }).returning();
   await db.insert(empresaUsuarios).values([
     { empresaId: e.id, usuarioId: dono.id, papel: "dono" },
@@ -361,7 +367,7 @@ async function criarExtra(x: Extra) {
       novasDespesas.push({ empresaId: e.id, data: d(1), valorCentavos: reais(valor), descricao, categoriaId: cat(chave), vencimento: d(10), ...pago(d(10)), criadoPor: dono.id });
     novasDespesas.push({ empresaId: e.id, data: d(1), valorCentavos: reais(x.proLabore), descricao: "Pró-labore", categoriaId: cat("pro_labore"), vencimento: d(5), ...pago(d(5)), criadoPor: dono.id });
     if (x.mercadorias && comercio)
-      novasDespesas.push({ empresaId: e.id, data: d(8), valorCentavos: Math.round((comercio * x.mercadorias) / 100), descricao: "Compra de peças", categoriaId: cat("mercadorias"), vencimento: d(15), ...pago(d(15)), criadoPor: dono.id });
+      novasDespesas.push({ empresaId: e.id, data: d(8), valorCentavos: Math.round((comercio * x.mercadorias) / 100), descricao: x.descricaoMercadorias ?? "Compra de peças", categoriaId: cat("mercadorias"), vencimento: d(15), ...pago(d(15)), criadoPor: dono.id });
   });
   await db.insert(vendas).values(novasVendas);
   await db.insert(despesas).values(novasDespesas);
@@ -384,6 +390,7 @@ async function criarExtra(x: Extra) {
       await db.insert(despesas).values({ empresaId: e.id, data: `${mes}-20`, valorCentavos: imposto.total, descricao: "Impostos do mês anterior", categoriaId: cat("impostos"), vencimento: `${mes}-20`, ...pago(`${mes}-20`), criadoPor: dono.id });
   }
   console.log(`${e.nome}: ${novasVendas.length} vendas, ${novasDespesas.length} despesas, ${x.funcionarios.length} funcionários.`);
+  return e;
 }
 
 // Estúdio de design no Anexo V com Fator R: só com pró-labore, a folha fica abaixo de 28%;
@@ -417,6 +424,30 @@ await criarExtra({
   ],
   crescimento: 0.5,
 });
+
+// ── Fase 5: equipe Urutau e a revenda de veículos (primeiro cliente piloto) ──
+const [admin] = await db
+  .insert(usuarios)
+  .values({ nome: "Equipe Urutau", email: "admin@urutau.dev", senhaHash, superadmin: true })
+  .returning();
+const loja = await criarExtra({
+  empresa: { nome: "Urutau Veículos", perfil: "revenda_veiculos", atividade: "ambos", cidade: "Maricá", uf: "RJ", regime: "simples", anexoComercio: "I", anexoServicos: "III", inicioAtividade: "2023-04-03" },
+  fontes: [
+    { nome: "Venda de veículos", natureza: "comercio", mensal: [190000, 250000], lancamentos: 4 },
+    { nome: "Comissão de financiamento", natureza: "servico", mensal: [6000, 9000], lancamentos: 3 },
+    { nome: "Despachante e documentação", natureza: "servico", mensal: [1500, 2600], lancamentos: 4 },
+  ],
+  despesasFixas: [["contas_fixas", "Aluguel do pátio", 7500], ["contas_fixas", "Energia, água e internet", 900], ["contas_fixas", "Contabilidade", 1200], ["marketing", "Anúncios (Webmotors, OLX, Instagram)", 2200], ["juros_tarifas", "Tarifas bancárias", 150]],
+  mercadorias: 84,
+  descricaoMercadorias: "Compra de veículos para revenda",
+  proLabore: 8000,
+  funcionarios: [
+    { nome: "Diego Rocha", cargo: "Vendedor", salarioBrutoCentavos: reais(2600), admissao: "2023-05-02", vtCentavos: reais(180), vrCentavos: reais(450) },
+    { nome: "Bruna Teixeira", cargo: "Preparação e lavagem", salarioBrutoCentavos: reais(1900), admissao: "2024-02-05", vtCentavos: reais(180) },
+  ],
+  crescimento: 1.2,
+});
+await semearRevenda(db, { loja, dono, colaborador, admin, hojeData });
 
 // ── Fase 4: recorrentes, guias geradas pelo sistema e férias pagas ─────────
 const catsPadaria = await db.select().from(categoriasDespesa).where(eq(categoriasDespesa.empresaId, padariaId));
@@ -455,3 +486,4 @@ console.log("Fase 4: despesas recorrentes, guias de impostos e férias registrad
 
 await cliente.end();
 console.log(`\nPronto! Entre com dono@urutau.dev / ${process.env.SEED_SENHA ? "(a senha de SEED_SENHA)" : "urutau123"} (também colaborador@ e contador@).`);
+console.log("Painel Urutau (todas as empresas): admin@urutau.dev, mesma senha.");

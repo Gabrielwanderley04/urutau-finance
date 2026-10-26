@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlternarTema } from "@/components/AlternarTema";
+import { telaDoModulo } from "@/lib/perfis";
 import { pode } from "@/lib/permissoes";
 import { exigirAcesso } from "@/lib/servidor/acesso";
 import { sair } from "@/app/(publico)/acoes";
@@ -8,10 +9,14 @@ export const metadata = { title: "Mais" };
 
 export default async function Mais({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = await params;
-  const { papel, usuario } = await exigirAcesso(empresaId);
+  const { papel, usuario, empresa, modulos } = await exigirAcesso(empresaId);
   const base = `/e/${empresaId}`;
   const gerencia = pode(papel, "gerenciar");
   const itens: { href?: string; titulo: string; desc: string; fase?: number }[] = [
+    ...(pode(papel, "conferir") ? [{ href: `${base}/conferir`, titulo: "Para conferir", desc: "Vendas que entraram sozinhas esperando o seu check" }] : []),
+    ...(pode(papel, "ver_clientes") ? [{ href: `${base}/clientes`, titulo: "Clientes", desc: "Quem compra, com telefone e histórico" }] : []),
+    // Módulos ligados que ainda não têm tela: aparecem como "em breve".
+    ...(["agenda", "estoque", "whatsapp"] as const).filter((m) => modulos.has(m)).map((m) => telaDoModulo(empresa.perfil, m)),
     ...(pode(papel, "ver_painel")
       ? [
           { href: `${base}/contas`, titulo: "Contas a pagar e receber", desc: "Agenda de vencimentos e atrasos" },

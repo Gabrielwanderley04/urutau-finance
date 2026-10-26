@@ -25,6 +25,27 @@ export function cnpjValido(entrada: string): boolean {
   return c.endsWith(`${d1}${d2}`);
 }
 
+/**
+ * Telefone no formato do WhatsApp: só dígitos, com DDI. Número brasileiro sem DDI
+ * (10 ou 11 dígitos com DDD) ganha o 55; com "+" na frente, o DDI já veio.
+ * Devolve null se não parecer um telefone.
+ */
+export function normalizarTelefone(entrada: string): string | null {
+  const comDdi = entrada.trim().startsWith("+");
+  let d = somenteDigitos(entrada).replace(/^0+/, "");
+  if (!comDdi && (d.length === 10 || d.length === 11)) d = `55${d}`;
+  // Fora do Brasil o número completo pode ter só 10 ou 11 dígitos (ex.: EUA, +1 e 10 dígitos).
+  if (d.length < (comDdi ? 10 : 12) || d.length > 15) return null;
+  if (d.startsWith("55") && d.length !== 12 && d.length !== 13) return null;
+  return d;
+}
+
+export function formatarTelefone(t: string | null) {
+  if (!t) return "";
+  const m = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(t);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : `+${t}`;
+}
+
 export function formatarCnpj(c: string | null) {
   if (!c) return "";
   return c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
@@ -76,6 +97,11 @@ export const esquemaVenda = z
     }),
     status: z.enum(["recebido", "a_receber"], { message: "Diga se já recebeu" }),
     dataRecebimento: dataOpcional,
+    clienteId: z
+      .string()
+      .optional()
+      .transform((s) => s || null)
+      .refine((s) => s === null || z.string().uuid().safeParse(s).success, "Cliente inválido"),
   })
   .transform((v, ctx) => {
     let dataRecebimento = v.dataRecebimento;
@@ -128,6 +154,10 @@ export const esquemaEmpresa = z
     aliquotaIss: percentualOpcional,
     aliquotaIcms: percentualOpcional,
     inicioAtividade: dataOpcional,
+    perfil: z
+      .enum(["financas", "revenda_veiculos", "consultorio", "varejo", "servicos", "alimentacao"], { message: "Escolha o tipo de negócio" })
+      .optional()
+      .default("financas"),
   })
   .transform((v, ctx) => {
     const temComercio = v.atividade !== "servicos";
@@ -154,8 +184,39 @@ export const esquemaEmpresa = z
       aliquotaIssPcm: temServicos ? v.aliquotaIss : null,
       aliquotaIcmsPcm: temComercio ? v.aliquotaIcms : null,
       inicioAtividade: v.inicioAtividade ?? null,
+      perfil: v.perfil,
     };
   });
+
+export const esquemaCliente = z.object({
+  nome: texto(120).min(2, "Informe o nome"),
+  telefone: z
+    .string()
+    .optional()
+    .transform((s, ctx) => {
+      if (!s || !s.trim()) return null;
+      const t = normalizarTelefone(s);
+      if (!t) {
+        ctx.addIssue({ code: "custom", message: "Telefone inválido. Exemplo: (21) 99999-8888" });
+        return z.NEVER;
+      }
+      return t;
+    }),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .optional()
+    .transform((s) => s || null)
+    .refine((s) => s === null || z.string().email().safeParse(s).success, "E-mail inválido"),
+  documento: z
+    .string()
+    .optional()
+    .transform((s) => (s ? somenteDigitos(s) : null))
+    .refine((s) => !s || s.length === 11 || cnpjValido(s), "Informe um CPF (11 dígitos) ou CNPJ válido")
+    .transform((s) => s || null),
+  observacao: texto(1000).optional().transform((s) => s ?? ""),
+});
 
 export const esquemaCategoria = z.object({
   nome: texto(60).min(2, "Informe o nome"),

@@ -7,12 +7,14 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -72,6 +74,21 @@ export const tipoDividaEnum = pgEnum("tipo_divida", [
   "outro",
 ]);
 export const tratamentoMercadoriasEnum = pgEnum("tratamento_mercadorias", ["despesa_na_compra", "cmv"]);
+/** Tipo de negócio: decide a tela inicial, o menu e os módulos ligados por padrão (src/lib/perfis.ts). */
+export const perfilEnum = pgEnum("perfil_empresa", [
+  "financas",
+  "revenda_veiculos",
+  "consultorio",
+  "varejo",
+  "servicos",
+  "alimentacao",
+]);
+export const moduloEnum = pgEnum("modulo", ["financas", "agenda", "estoque", "whatsapp"]);
+/** Por onde a venda entrou. Só "manual" já nasce conferida; as automáticas esperam o check do dono. */
+export const origemVendaEnum = pgEnum("origem_venda", ["manual", "whatsapp", "agenda", "balcao", "site"]);
+export const origemClienteEnum = pgEnum("origem_cliente", ["manual", "whatsapp", "site", "balcao", "indicacao"]);
+export const atorEnum = pgEnum("ator", ["usuario", "admin", "agente", "sistema"]);
+export const statusTarefaEnum = pgEnum("status_tarefa", ["pendente", "executando", "concluida", "falhou"]);
 
 // ─── Acesso ──────────────────────────────────────────────────────────────────
 
@@ -119,6 +136,7 @@ export const empresas = pgTable(
     tratamentoMercadorias: tratamentoMercadoriasEnum("tratamento_mercadorias")
       .notNull()
       .default("despesa_na_compra"),
+    perfil: perfilEnum("perfil").notNull().default("financas"),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
   },
@@ -148,6 +166,20 @@ export const empresaUsuarios = pgTable(
   (t) => [primaryKey({ columns: [t.empresaId, t.usuarioId] }), index("eu_usuario_idx").on(t.usuarioId)],
 );
 
+/** Módulos ligados para a empresa. Sem linha = vale o padrão do perfil. */
+export const empresaModulos = pgTable(
+  "empresa_modulos",
+  {
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    modulo: moduloEnum("modulo").notNull(),
+    ativo: boolean("ativo").notNull(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [primaryKey({ columns: [t.empresaId, t.modulo] })],
+);
+
 /** Faturamento e folha de meses anteriores ao uso do sistema (para RBT12 e Fator R). */
 export const receitasHistoricas = pgTable(
   "receitas_historicas",
@@ -165,6 +197,41 @@ export const receitasHistoricas = pgTable(
     primaryKey({ columns: [t.empresaId, t.competencia] }),
     check("rh_competencia", sql`${t.competencia} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
     check("rh_valores", sql`${t.receitaCentavos} >= 0 and ${t.folhaCentavos} >= 0`),
+  ],
+);
+
+// ─── Clientes ────────────────────────────────────────────────────────────────
+
+/** Quem compra ou é atendido. No WhatsApp, o telefone identifica o cliente. */
+export const clientes = pgTable(
+  "clientes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    nome: text("nome").notNull(),
+    /** Só dígitos com DDI (ex.: 5521999998888), o mesmo formato que o WhatsApp entrega. */
+    telefone: text("telefone"),
+    email: text("email"),
+    /** CPF ou CNPJ, só dígitos. */
+    documento: text("documento"),
+    observacao: text("observacao").notNull().default(""),
+    origem: origemClienteEnum("origem").notNull().default("manual"),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+    excluidoEm: excluidoEm(),
+  },
+  (t) => [
+    unique("clientes_empresa_id_uq").on(t.empresaId, t.id),
+    check("clientes_telefone", sql`${t.telefone} is null or ${t.telefone} ~ '^[0-9]{10,15}$'`),
+    check("clientes_documento", sql`${t.documento} is null or ${t.documento} ~ '^([0-9]{11}|[0-9]{14})$'`),
+    index("clientes_empresa_nome_idx").on(t.empresaId, t.nome),
+    // Um telefone identifica um cliente por empresa (é assim que o WhatsApp acha quem está falando).
+    uniqueIndex("clientes_telefone_uq")
+      .on(t.empresaId, t.telefone)
+      .where(sql`${t.telefone} is not null and ${t.excluidoEm} is null`),
   ],
 );
 
@@ -202,6 +269,14 @@ export const vendas = pgTable(
     status: statusVendaEnum("status").notNull(),
     /** Prevista enquanto a_receber; efetiva quando recebido. */
     dataRecebimento: date("data_recebimento").notNull(),
+    clienteId: uuid("cliente_id"),
+    origem: origemVendaEnum("origem").notNull().default("manual"),
+    /**
+     * null = entrou sozinha (WhatsApp, agenda…) e espera o check do dono. O padrão é "agora":
+     * quem lança à mão já conferiu; os canais automáticos gravam null de propósito.
+     */
+    conferidoEm: timestamp("conferido_em", { withTimezone: true }).defaultNow(),
+    conferidoPor: uuid("conferido_por").references(() => usuarios.id, { onDelete: "set null" }),
     criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
@@ -213,6 +288,13 @@ export const vendas = pgTable(
       columns: [t.empresaId, t.fonteReceitaId],
       foreignColumns: [fontesReceita.empresaId, fontesReceita.id],
     }),
+    foreignKey({
+      name: "vendas_cliente_fk",
+      columns: [t.empresaId, t.clienteId],
+      foreignColumns: [clientes.empresaId, clientes.id],
+    }),
+    index("vendas_empresa_conferir_idx").on(t.empresaId).where(sql`${t.conferidoEm} is null and ${t.excluidoEm} is null`),
+    index("vendas_empresa_cliente_idx").on(t.empresaId, t.clienteId),
     check("vendas_valor_positivo", sql`${t.valorCentavos} > 0`),
     index("vendas_empresa_data_idx").on(t.empresaId, t.data),
     index("vendas_empresa_receb_idx").on(t.empresaId, t.dataRecebimento),
@@ -566,10 +648,55 @@ export const parcelasDivida = pgTable(
   ],
 );
 
-export type TipoDivida = (typeof tipoDividaEnum.enumValues)[number];
+// ─── Auditoria e tarefas ─────────────────────────────────────────────────────
+
+/** Quem fez o quê. O agente do WhatsApp e o painel Urutau também registram aqui. */
+export const auditoria = pgTable(
+  "auditoria",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** null em ações fora de uma empresa (ex.: admin redefiniu a senha de alguém). */
+    empresaId: uuid("empresa_id").references(() => empresas.id, { onDelete: "cascade" }),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    ator: atorEnum("ator").notNull(),
+    acao: text("acao").notNull(),
+    entidade: text("entidade"),
+    entidadeId: uuid("entidade_id"),
+    dados: jsonb("dados").$type<Record<string, unknown>>(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index("auditoria_empresa_idx").on(t.empresaId, t.criadoEm)],
+);
+
+/**
+ * Trabalho feito fora de uma tela (rotinas diárias, depois mensagens do WhatsApp e lembretes).
+ * O cron pega as pendentes com FOR UPDATE SKIP LOCKED; `chave` impede enfileirar a mesma coisa duas vezes.
+ */
+export const tarefas = pgTable(
+  "tarefas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empresaId: uuid("empresa_id").references(() => empresas.id, { onDelete: "cascade" }),
+    tipo: text("tipo").notNull(),
+    dados: jsonb("dados").$type<Record<string, unknown>>().notNull().default({}),
+    chave: text("chave").unique(),
+    status: statusTarefaEnum("status").notNull().default("pendente"),
+    executarEm: timestamp("executar_em", { withTimezone: true }).notNull().defaultNow(),
+    tentativas: integer("tentativas").notNull().default(0),
+    ultimoErro: text("ultimo_erro"),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [index("tarefas_fila_idx").on(t.status, t.executarEm)],
+);
+
+export type TipoDivida =(typeof tipoDividaEnum.enumValues)[number];
 export type Papel = (typeof papelEnum.enumValues)[number];
 export type Regime = (typeof regimeEnum.enumValues)[number];
 export type Atividade = (typeof atividadeEnum.enumValues)[number];
 export type FormaPagamento = (typeof formaPagamentoEnum.enumValues)[number];
 export type ChaveCategoria = (typeof chaveCategoriaEnum.enumValues)[number];
 export type Empresa = typeof empresas.$inferSelect;
+export type Perfil = (typeof perfilEnum.enumValues)[number];
+export type Modulo = (typeof moduloEnum.enumValues)[number];
+export type OrigemVenda = (typeof origemVendaEnum.enumValues)[number];

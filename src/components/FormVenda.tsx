@@ -14,16 +14,19 @@ export interface VendaInicial {
   formaPagamento: string;
   status: string;
   dataRecebimento: string;
+  clienteId: string;
 }
 
 export function FormVenda({
   acao,
   fontes,
+  clientes = [],
   inicial,
   somenteLeitura = false,
 }: {
   acao: (e: EstadoForm, fd: FormData) => Promise<EstadoForm>;
   fontes: { id: string; nome: string }[];
+  clientes?: { id: string; nome: string }[];
   inicial: VendaInicial;
   somenteLeitura?: boolean;
 }) {
@@ -68,6 +71,15 @@ export function FormVenda({
             <input id="dataRecebimento" name="dataRecebimento" type="date" defaultValue={v.dataRecebimento} required={status === "a_receber"} className="campo" />
           </Campo>
         </div>
+
+        {clientes.length > 0 && (
+          <Campo rotulo="Cliente (opcional)" nome="clienteId" erro={e.clienteId}>
+            <select id="clienteId" name="clienteId" defaultValue={v.clienteId} className="campo">
+              <option value="">Sem cliente</option>
+              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </Campo>
+        )}
 
         <Campo rotulo="Descrição (opcional)" nome="descricao" erro={e.descricao}>
           <input id="descricao" name="descricao" defaultValue={v.descricao} placeholder="Ex.: encomenda de bolo" className="campo" />

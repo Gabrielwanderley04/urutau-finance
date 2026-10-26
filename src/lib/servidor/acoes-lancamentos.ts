@@ -10,6 +10,7 @@ import type { EstadoForm } from "@/lib/estado-form";
 import { podeAlterarLancamento } from "@/lib/permissoes";
 import { errosPorCampo, esquemaDespesa, esquemaVenda, formParaObjeto } from "@/lib/validacao";
 import { type Contexto, exigirPermissao } from "./acesso";
+import { clienteDaEmpresa } from "./clientes";
 
 async function fonteDaEmpresa(empresaId: string, id: string) {
   const [f] = await obterDb()
@@ -71,6 +72,8 @@ export async function salvarVenda(
   if (!r.success) return { erros: errosPorCampo(r.error), valores };
   if (!(await fonteDaEmpresa(empresaId, r.data.fonteReceitaId)))
     return { erros: { fonteReceitaId: "Fonte de receita inválida" }, valores };
+  if (r.data.clienteId && !(await clienteDaEmpresa(obterDb(), empresaId, r.data.clienteId)))
+    return { erros: { clienteId: "Cliente inválido" }, valores };
 
   const dados = {
     data: r.data.data,
@@ -80,6 +83,7 @@ export async function salvarVenda(
     formaPagamento: r.data.formaPagamento,
     status: r.data.status,
     dataRecebimento: r.data.dataRecebimento,
+    clienteId: r.data.clienteId,
   };
   const db = obterDb();
   if (id) {

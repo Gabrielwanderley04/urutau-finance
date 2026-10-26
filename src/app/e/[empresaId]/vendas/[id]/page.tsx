@@ -2,12 +2,15 @@ import { notFound } from "next/navigation";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { Cabecalho } from "@/components/Campos";
 import { FormVenda } from "@/components/FormVenda";
-import { mesDe } from "@/lib/datas";
+import { formatarData, mesDe } from "@/lib/datas";
 import { centavosParaInput } from "@/lib/dinheiro";
 import { podeAlterarLancamento } from "@/lib/permissoes";
 import { exigirAcesso } from "@/lib/servidor/acesso";
 import { excluirVenda, salvarVenda } from "@/lib/servidor/acoes-lancamentos";
 import { listarFontes, obterVenda } from "@/lib/servidor/lancamentos";
+import { opcoesDeClientes } from "@/lib/servidor/clientes";
+import { obterDb } from "@/db";
+import { NOME_ORIGEM_VENDA } from "@/lib/rotulos";
 
 export const metadata = { title: "Venda" };
 
@@ -18,13 +21,21 @@ export default async function EditarVenda({ params }: { params: Promise<{ empres
   if (!venda) notFound();
   // Mostra também a fonte atual mesmo que tenha sido desativada.
   const fontes = (await listarFontes(empresaId, false)).filter((f) => f.ativo || f.id === venda.fonteReceitaId);
+  const clientes = await opcoesDeClientes(obterDb(), empresaId);
   const editavel = podeAlterarLancamento(ctx.papel, ctx.usuario.id, venda.criadoPor);
   return (
     <>
       <Cabecalho titulo={editavel ? "Editar venda" : "Venda"} voltar={`/e/${empresaId}/vendas?mes=${mesDe(venda.data)}`} />
+      {venda.origem !== "manual" && (
+        <p className="mb-4 rounded-xl border border-borda p-3 text-sm text-suave">
+          Entrou {NOME_ORIGEM_VENDA[venda.origem]}
+          {venda.conferidoEm ? `, conferida em ${formatarData(venda.conferidoEm.toISOString().slice(0, 10))}.` : ". Ainda não foi conferida."}
+        </p>
+      )}
       <FormVenda
         acao={salvarVenda.bind(null, empresaId, id)}
         fontes={fontes}
+        clientes={clientes}
         somenteLeitura={!editavel}
         inicial={{
           data: venda.data,
@@ -34,6 +45,7 @@ export default async function EditarVenda({ params }: { params: Promise<{ empres
           formaPagamento: venda.formaPagamento,
           status: venda.status,
           dataRecebimento: venda.dataRecebimento,
+          clienteId: venda.clienteId ?? "",
         }}
       />
       {editavel && (

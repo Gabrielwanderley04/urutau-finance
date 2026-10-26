@@ -20,12 +20,21 @@ export default async function Empresas() {
     .where(eq(empresaUsuarios.usuarioId, usuario.id))
     .orderBy(asc(empresas.nome));
 
-  if (lista.length === 0) redirect("/empresas/nova");
+  if (lista.length === 0) redirect(usuario.superadmin ? "/admin" : "/empresas/nova");
 
   return (
     <main className="mx-auto max-w-md px-4 py-8">
       <Logo className="text-xl" />
       <h1 className="mt-6 font-titulo text-2xl font-bold">Olá, {usuario.nome.split(" ")[0]}</h1>
+      {usuario.superadmin && (
+        <Link href="/admin" className="cartao mb-5 flex items-center justify-between gap-3 border-destaque">
+          <span>
+            <span className="block font-titulo text-lg font-bold">Painel Urutau</span>
+            <span className="text-sm text-suave">Todas as empresas atendidas, logins e módulos</span>
+          </span>
+          <span aria-hidden className="text-2xl text-suave">›</span>
+        </Link>
+      )}
       <p className="mb-5 text-suave">Escolha a empresa:</p>
       <ul className="space-y-3">
         {lista.map((e) => (
